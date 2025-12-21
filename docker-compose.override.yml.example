@@ -1,0 +1,13 @@
+# Copy this file to docker-compose.override.yml and customize for your local setup
+# This file is automatically loaded by docker-compose
+
+version: '3.8'
+
+services:
+  backend:
+    environment:
+      # Override environment variables here
+      JWT_SECRET: your-local-jwt-secret-key
+      PAYFAST_MERCHANT_ID: your-merchant-id
+      PAYFAST_MERCHANT_KEY: your-merchant-key
+

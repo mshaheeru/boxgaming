@@ -1,0 +1,34 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dumb-init
+RUN apk add --no-cache dumb-init
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Create dist directory and set permissions
+RUN mkdir -p /app/dist && \
+    chown -R nodejs:nodejs /app
+
+USER nodejs
+
+EXPOSE 3000 9229
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start in development mode (will be overridden by docker-compose command)
+CMD ["npm", "run", "start:dev"]
+
