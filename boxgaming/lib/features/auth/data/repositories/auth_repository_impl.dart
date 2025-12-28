@@ -79,5 +79,20 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(CacheFailure('Failed to logout'));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> changePassword(String currentPassword, String newPassword) async {
+    try {
+      await remoteDataSource.changePassword(currentPassword, newPassword);
+      // Refresh user to get updated requires_password_change flag
+      final user = await remoteDataSource.getCurrentUser();
+      await localDataSource.saveUser(user);
+      return const Right(null);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error: ${e.toString()}'));
+    }
+  }
 }
 

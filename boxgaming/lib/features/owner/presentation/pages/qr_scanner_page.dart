@@ -78,3 +78,4 @@ class _QRScannerPageState extends State<QRScannerPage> {
 }
 
 
+

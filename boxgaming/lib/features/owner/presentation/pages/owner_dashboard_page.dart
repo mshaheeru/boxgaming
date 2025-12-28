@@ -4,20 +4,56 @@ import 'package:go_router/go_router.dart';
 import '../bloc/owner_bloc.dart';
 import '../bloc/owner_event.dart';
 import '../bloc/owner_state.dart';
+import '../bloc/venue_management_bloc.dart';
 import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../core/constants/route_constants.dart';
+import '../../../../core/di/injection_container.dart' as di;
 import '../../../bookings/domain/entities/booking_entity.dart';
 import '../../domain/entities/dashboard_entity.dart';
+import 'venue_management_page.dart';
 
 class OwnerDashboardPage extends StatelessWidget {
   const OwnerDashboardPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Always create a new instance to avoid using a closed Bloc from previous session
+    // This prevents "Cannot add new events after calling close" errors after logout/login
     return BlocProvider(
-      create: (context) => context.read<OwnerBloc>()..add(LoadTodayBookingsEvent()),
+      create: (context) => di.sl<OwnerBloc>(),
+      child: _OwnerDashboardContent(),
+    );
+  }
+}
+
+class _OwnerDashboardContent extends StatefulWidget {
+  const _OwnerDashboardContent();
+
+  @override
+  State<_OwnerDashboardContent> createState() => _OwnerDashboardContentState();
+}
+
+class _OwnerDashboardContentState extends State<_OwnerDashboardContent> {
+  @override
+  void initState() {
+    super.initState();
+    // Load bookings after the widget is fully mounted and BlocProvider is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final bloc = context.read<OwnerBloc>();
+        if (!bloc.isClosed) {
+          bloc.add(LoadTodayBookingsEvent());
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Owner Dashboard'),
@@ -29,64 +65,85 @@ class OwnerDashboardPage extends StatelessWidget {
               },
             ),
           ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(icon: Icon(Icons.dashboard), text: 'Dashboard'),
+              Tab(icon: Icon(Icons.business), text: 'Venue Management'),
+            ],
+          ),
         ),
         drawer: const AppDrawer(),
-        body: BlocBuilder<OwnerBloc, OwnerState>(
-          builder: (context, state) {
-            if (state is OwnerLoading) {
-              return const LoadingWidget(message: 'Loading dashboard...');
-            }
-
-            if (state is OwnerError) {
-              return ErrorDisplayWidget(
-                message: state.message,
-                onRetry: () {
-                  context.read<OwnerBloc>().add(LoadTodayBookingsEvent());
-                },
-              );
-            }
-
-            if (state is DashboardLoaded) {
-              return RefreshIndicator(
-                onRefresh: () async {
-                  context.read<OwnerBloc>().add(LoadTodayBookingsEvent());
-                },
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _StatsCards(dashboard: state.dashboard),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Today\'s Bookings',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (state.dashboard.todayBookings.isEmpty)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: Text('No bookings for today'),
-                          ),
-                        )
-                      else
-                        ...state.dashboard.todayBookings.map(
-                          (booking) => _BookingCard(booking: booking),
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            return const SizedBox.shrink();
-          },
+        body: TabBarView(
+          children: [
+            _DashboardTab(),
+            BlocProvider(
+              create: (context) => di.sl<VenueManagementBloc>(),
+              child: const VenueManagementPage(),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _DashboardTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<OwnerBloc, OwnerState>(
+      builder: (context, state) {
+        if (state is OwnerLoading) {
+          return const LoadingWidget(message: 'Loading dashboard...');
+        }
+
+        if (state is OwnerError) {
+          return ErrorDisplayWidget(
+            message: state.message,
+            onRetry: () {
+              context.read<OwnerBloc>().add(LoadTodayBookingsEvent());
+            },
+          );
+        }
+
+        if (state is DashboardLoaded) {
+          return RefreshIndicator(
+            onRefresh: () async {
+              context.read<OwnerBloc>().add(LoadTodayBookingsEvent());
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _StatsCards(dashboard: state.dashboard),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Today\'s Bookings',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (state.dashboard.todayBookings.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.0),
+                        child: Text('No bookings for today'),
+                      ),
+                    )
+                  else
+                    ...state.dashboard.todayBookings.map(
+                      (booking) => _BookingCard(booking: booking),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return const SizedBox.shrink();
+      },
     );
   }
 }

@@ -197,6 +197,47 @@ export class BookingsService {
   }
 
   /**
+   * Get owner's bookings (filtered by tenant_id)
+   */
+  async getOwnerBookings(ownerId: string, tenantId: string) {
+    const supabase = this.supabaseService.getAdminClient();
+    
+    // Get all venues for this tenant
+    const { data: venues } = await supabase
+      .from('venues')
+      .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('owner_id', ownerId);
+
+    if (!venues || venues.length === 0) {
+      return [];
+    }
+
+    const venueIds = venues.map(v => v.id);
+
+    // Get bookings for these venues
+    const { data: bookings, error } = await supabase
+      .from('bookings')
+      .select(`
+        *,
+        ground:grounds!bookings_ground_id_fkey(
+          *,
+          venue:venues!grounds_venue_id_fkey(id, name, address, photos)
+        ),
+        customer:users!bookings_customer_id_fkey(id, name, phone)
+      `)
+      .in('venue_id', venueIds)
+      .order('booking_date', { ascending: false })
+      .order('start_time', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch owner bookings: ${error.message}`);
+    }
+
+    return bookings || [];
+  }
+
+  /**
    * Get booking by ID
    */
   async findOne(id: string, userId?: string) {
@@ -232,14 +273,20 @@ export class BookingsService {
   /**
    * Mark booking as started (owner only)
    */
-  async markStarted(bookingId: string, ownerId: string) {
+  async markStarted(bookingId: string, ownerId: string, tenantId: string) {
     const booking = await this.findOne(bookingId, ownerId);
     
-    if (booking.ground.venue.owner_id !== ownerId) {
+    // Verify venue belongs to owner's tenant
+    const supabase = this.supabaseService.getAdminClient();
+    const { data: venue } = await supabase
+      .from('venues')
+      .select('tenant_id')
+      .eq('id', booking.ground.venue.id)
+      .single();
+    
+    if (booking.ground.venue.owner_id !== ownerId || venue?.tenant_id !== tenantId) {
       throw new BadRequestException('You do not have permission to update this booking');
     }
-
-    const supabase = this.supabaseService.getAdminClient();
     
     const { data: updatedBooking, error } = await supabase
       .from('bookings')
@@ -258,14 +305,20 @@ export class BookingsService {
   /**
    * Mark booking as completed (owner only)
    */
-  async markCompleted(bookingId: string, ownerId: string) {
+  async markCompleted(bookingId: string, ownerId: string, tenantId: string) {
     const booking = await this.findOne(bookingId, ownerId);
     
-    if (booking.ground.venue.owner_id !== ownerId) {
+    // Verify venue belongs to owner's tenant
+    const supabase = this.supabaseService.getAdminClient();
+    const { data: venue } = await supabase
+      .from('venues')
+      .select('tenant_id')
+      .eq('id', booking.ground.venue.id)
+      .single();
+    
+    if (booking.ground.venue.owner_id !== ownerId || venue?.tenant_id !== tenantId) {
       throw new BadRequestException('You do not have permission to update this booking');
     }
-
-    const supabase = this.supabaseService.getAdminClient();
     
     const { data: updatedBooking, error } = await supabase
       .from('bookings')

@@ -8,8 +8,28 @@ export interface Slot {
   price: number;
 }
 
+/**
+ * Represents a free time segment (operating hours minus bookings/blocks)
+ */
+interface FreeSegment {
+  start: Date;
+  end: Date;
+}
+
 @Injectable()
 export class SlotService {
+  // Time granularity for slot generation (30 minutes)
+  private readonly TIME_GRANULARITY_MINUTES = 30;
+  
+  // Allowed booking durations in minutes (2hr = 120, 3hr = 180)
+  private readonly ALLOWED_DURATIONS_MINUTES = [120, 180];
+  
+  // Maximum time to check feasibility for (24 hours in minutes)
+  private readonly MAX_TIME_MINUTES = 24 * 60;
+  
+  // Precomputed DP array for feasibility (cached per instance)
+  private feasibleCache: boolean[] | null = null;
+
   constructor(
     private supabaseService: SupabaseService,
     private redisService: RedisService,
@@ -17,6 +37,9 @@ export class SlotService {
 
   /**
    * Get available slots for a ground on a specific date
+   * 
+   * This implementation prevents "wasted time" by only showing start times
+   * where the remaining free time on both sides can be filled with 2hr/3hr packages.
    */
   async getAvailableSlots(
     groundId: string,
@@ -68,7 +91,7 @@ export class SlotService {
       return [];
     }
 
-    // Parse times
+    // Parse operating times
     const [openHour, openMin] = dayHours.open_time.split(':').map(Number);
     const [closeHour, closeMin] = dayHours.close_time.split(':').map(Number);
 
@@ -78,26 +101,7 @@ export class SlotService {
     const closeTime = new Date(date);
     closeTime.setHours(closeHour, closeMin, 0, 0);
 
-    // Generate slots
-    const slots: Slot[] = [];
-    const currentTime = new Date(openTime);
-
-    while (currentTime.getTime() + duration * 60 * 60 * 1000 <= closeTime.getTime()) {
-      const timeStr = `${String(currentTime.getHours()).padStart(2, '0')}:${String(
-        currentTime.getMinutes(),
-      ).padStart(2, '0')}`;
-
-      slots.push({
-        time: timeStr,
-        available: true,
-        price: duration === 2 ? Number(ground.price_2hr) : Number(ground.price_3hr),
-      });
-
-      // Move to next slot (start of next slot = end of current slot)
-      currentTime.setHours(currentTime.getHours() + duration);
-    }
-
-    // Get existing bookings for this date
+    // Get existing bookings and blocked slots
     const dateStr = date.toISOString().split('T')[0];
     const { data: bookings } = await supabase
       .from('bookings')
@@ -106,50 +110,40 @@ export class SlotService {
       .eq('booking_date', dateStr)
       .not('status', 'in', '(cancelled,no_show)');
 
-    // Get blocked slots
     const { data: blockedSlots } = await supabase
       .from('blocked_slots')
       .select('start_time, end_time')
       .eq('ground_id', groundId)
       .eq('block_date', dateStr);
 
-    // Mark unavailable slots
-    slots.forEach((slot) => {
-      // Check if slot conflicts with existing booking
-      const hasBooking = (bookings || []).some((booking: any) => {
-        const bookingStart = this.parseTime(booking.start_time);
-        const bookingEnd = new Date(bookingStart);
-        bookingEnd.setHours(bookingEnd.getHours() + booking.duration_hours);
+    // Find free segments (operating hours minus bookings/blocks)
+    const freeSegments = this.findFreeSegments(
+      openTime,
+      closeTime,
+      bookings || [],
+      blockedSlots || [],
+    );
 
-        const slotStart = this.parseTime(slot.time);
-        const slotEnd = new Date(slotStart);
-        slotEnd.setHours(slotEnd.getHours() + duration);
+    // Precompute feasibility array (cached for performance)
+    const feasible = this.getFeasibleDurations();
 
-        // Check for overlap
-        return (
-          (slotStart >= bookingStart && slotStart < bookingEnd) ||
-          (slotEnd > bookingStart && slotEnd <= bookingEnd) ||
-          (slotStart <= bookingStart && slotEnd >= bookingEnd)
-        );
-      });
+    // Generate valid slots from free segments
+    const slots: Slot[] = [];
+    const durationMinutes = duration * 60;
+    const price = duration === 2 ? Number(ground.price_2hr) : Number(ground.price_3hr);
 
-      // Check if slot is blocked
-      const isBlocked = (blockedSlots || []).some((blocked: any) => {
-        const blockStart = this.parseTime(blocked.start_time);
-        const blockEnd = this.parseTime(blocked.end_time);
-        const slotStart = this.parseTime(slot.time);
-        const slotEnd = new Date(slotStart);
-        slotEnd.setHours(slotEnd.getHours() + duration);
+    for (const segment of freeSegments) {
+      const segmentSlots = this.generateValidSlotsFromSegment(
+        segment,
+        durationMinutes,
+        feasible,
+        price,
+      );
+      slots.push(...segmentSlots);
+    }
 
-        return (
-          (slotStart >= blockStart && slotStart < blockEnd) ||
-          (slotEnd > blockStart && slotEnd <= blockEnd) ||
-          (slotStart <= blockStart && slotEnd >= blockEnd)
-        );
-      });
-
-      slot.available = !hasBooking && !isBlocked;
-    });
+    // Sort slots by time
+    slots.sort((a, b) => a.time.localeCompare(b.time));
 
     // Cache result
     await this.redisService.cacheSlots(cacheKey, slots, 300);
@@ -158,7 +152,161 @@ export class SlotService {
   }
 
   /**
-   * Parse time string (HH:MM) to Date object for today
+   * Find free time segments by subtracting bookings and blocks from operating hours
+   */
+  private findFreeSegments(
+    openTime: Date,
+    closeTime: Date,
+    bookings: any[],
+    blockedSlots: any[],
+  ): FreeSegment[] {
+    // Combine bookings and blocks into occupied intervals
+    const occupied: Array<{ start: Date; end: Date }> = [];
+
+    // Add bookings
+    for (const booking of bookings) {
+      const start = this.parseTimeForDate(booking.start_time, openTime);
+      const end = new Date(start);
+      end.setMinutes(end.getMinutes() + booking.duration_hours * 60);
+      occupied.push({ start, end });
+    }
+
+    // Add blocked slots
+    for (const blocked of blockedSlots) {
+      const start = this.parseTimeForDate(blocked.start_time, openTime);
+      const end = this.parseTimeForDate(blocked.end_time, openTime);
+      occupied.push({ start, end });
+    }
+
+    // Sort occupied intervals by start time
+    occupied.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    // Find free segments
+    const freeSegments: FreeSegment[] = [];
+    let currentStart = new Date(openTime);
+
+    for (const interval of occupied) {
+      // If there's a gap before this occupied interval, it's a free segment
+      if (currentStart.getTime() < interval.start.getTime()) {
+        freeSegments.push({
+          start: new Date(currentStart),
+          end: new Date(interval.start),
+        });
+      }
+      // Move current start to the end of this occupied interval
+      currentStart = new Date(Math.max(currentStart.getTime(), interval.end.getTime()));
+    }
+
+    // Add remaining free segment after last occupied interval
+    if (currentStart.getTime() < closeTime.getTime()) {
+      freeSegments.push({
+        start: new Date(currentStart),
+        end: new Date(closeTime),
+      });
+    }
+
+    return freeSegments;
+  }
+
+  /**
+   * Generate valid slots from a free segment
+   * Only includes start times where both left and right gaps are feasible
+   */
+  private generateValidSlotsFromSegment(
+    segment: FreeSegment,
+    durationMinutes: number,
+    feasible: boolean[],
+    price: number,
+  ): Slot[] {
+    const slots: Slot[] = [];
+    const segmentStartMinutes = this.getMinutesFromMidnight(segment.start);
+    const segmentEndMinutes = this.getMinutesFromMidnight(segment.end);
+    const granularityMinutes = this.TIME_GRANULARITY_MINUTES;
+
+    // Generate candidate start times with granularity
+    for (
+      let startMinutes = segmentStartMinutes;
+      startMinutes + durationMinutes <= segmentEndMinutes;
+      startMinutes += granularityMinutes
+    ) {
+      // Calculate left and right gaps
+      const leftMinutes = startMinutes - segmentStartMinutes;
+      const rightMinutes = segmentEndMinutes - (startMinutes + durationMinutes);
+
+      // Check if both gaps are feasible (can be formed by 2hr/3hr combinations) or are 0
+      const leftFeasible = leftMinutes === 0 || (leftMinutes < feasible.length && feasible[leftMinutes]);
+      const rightFeasible = rightMinutes === 0 || (rightMinutes < feasible.length && feasible[rightMinutes]);
+
+      if (leftFeasible && rightFeasible) {
+        // This is a valid start time
+        const timeStr = this.minutesToTimeString(startMinutes);
+        slots.push({
+          time: timeStr,
+          available: true,
+          price,
+        });
+      }
+    }
+
+    return slots;
+  }
+
+  /**
+   * Precompute which time durations (in minutes) can be formed by 2hr/3hr combinations
+   * Uses dynamic programming: feasible[t] = feasible[t-120] OR feasible[t-180]
+   */
+  private getFeasibleDurations(): boolean[] {
+    // Return cached result if available
+    if (this.feasibleCache) {
+      return this.feasibleCache;
+    }
+
+    const feasible = new Array<boolean>(this.MAX_TIME_MINUTES + 1).fill(false);
+    feasible[0] = true; // 0 minutes is always feasible (empty)
+
+    // Fill DP array
+    for (let t = 1; t <= this.MAX_TIME_MINUTES; t++) {
+      for (const duration of this.ALLOWED_DURATIONS_MINUTES) {
+        if (t >= duration && feasible[t - duration]) {
+          feasible[t] = true;
+          break; // Found a way, no need to check other durations
+        }
+      }
+    }
+
+    // Cache for future use
+    this.feasibleCache = feasible;
+    return feasible;
+  }
+
+  /**
+   * Convert minutes from midnight to time string (HH:MM)
+   */
+  private minutesToTimeString(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+  }
+
+  /**
+   * Get minutes from midnight for a given date
+   */
+  private getMinutesFromMidnight(date: Date): number {
+    return date.getHours() * 60 + date.getMinutes();
+  }
+
+  /**
+   * Parse time string (HH:MM) to Date object using a reference date
+   */
+  private parseTimeForDate(timeStr: string, referenceDate: Date): Date {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const date = new Date(referenceDate);
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  }
+
+  /**
+   * Parse time string (HH:MM) to Date object for today (legacy method, kept for compatibility)
    */
   private parseTime(timeStr: string): Date {
     const [hours, minutes] = timeStr.split(':').map(Number);

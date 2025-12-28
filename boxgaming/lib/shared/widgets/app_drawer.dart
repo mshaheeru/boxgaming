@@ -59,8 +59,8 @@ class AppDrawer extends StatelessWidget {
                           onTap: () => _navigateAndClose(context, RouteConstants.myBookings),
                           index: 2,
                         ),
-                      ] else if (isOwner) ...[
-                        // Owner Navigation
+                      ] else if (isOwner && !isAdmin) ...[
+                        // Owner Navigation (not admin)
                         _DrawerTile(
                           icon: Icons.dashboard_rounded,
                           title: 'Dashboard',
@@ -74,6 +74,29 @@ class AppDrawer extends StatelessWidget {
                           route: RouteConstants.qrScanner,
                           onTap: () => _navigateAndClose(context, RouteConstants.qrScanner),
                           index: 1,
+                        ),
+                      ] else if (isAdmin) ...[
+                        // Admin Navigation
+                        _DrawerTile(
+                          icon: Icons.dashboard_rounded,
+                          title: 'Dashboard',
+                          route: RouteConstants.adminDashboard,
+                          onTap: () => _navigateAndClose(context, RouteConstants.adminDashboard),
+                          index: 0,
+                        ),
+                        _DrawerTile(
+                          icon: Icons.person_add_rounded,
+                          title: 'Assign Owners',
+                          route: RouteConstants.assignOwners,
+                          onTap: () => _navigateAndClose(context, RouteConstants.assignOwners),
+                          index: 1,
+                        ),
+                        _DrawerTile(
+                          icon: Icons.manage_accounts_rounded,
+                          title: 'Owner Management',
+                          route: RouteConstants.ownerManagement,
+                          onTap: () => _navigateAndClose(context, RouteConstants.ownerManagement),
+                          index: 2,
                         ),
                       ],
                       

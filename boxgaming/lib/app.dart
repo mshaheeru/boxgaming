@@ -9,6 +9,7 @@ import 'features/venues/presentation/bloc/venues_bloc.dart';
 import 'features/bookings/presentation/bloc/bookings_bloc.dart';
 import 'features/payments/presentation/bloc/payments_bloc.dart';
 import 'features/owner/presentation/bloc/owner_bloc.dart';
+import 'features/admin/presentation/bloc/admin_bloc.dart';
 
 class BoxGamingApp extends StatelessWidget {
   const BoxGamingApp({super.key});
@@ -24,7 +25,8 @@ class BoxGamingApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<VenuesBloc>()),
         BlocProvider(create: (_) => di.sl<BookingsBloc>()),
         BlocProvider(create: (_) => di.sl<PaymentsBloc>()),
-        BlocProvider(create: (_) => di.sl<OwnerBloc>()),
+        // OwnerBloc and AdminBloc are created lazily in their respective pages
+        // This prevents errors when they're closed during logout/login cycles
       ],
       child: MaterialApp.router(
         title: 'BoxGaming',

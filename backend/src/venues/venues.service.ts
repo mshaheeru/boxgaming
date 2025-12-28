@@ -8,15 +8,28 @@ import { VenueQueryDto } from './dto/venue-query.dto';
 export class VenuesService {
   constructor(private supabaseService: SupabaseService) {}
 
-  async create(ownerId: string, dto: CreateVenueDto) {
+  async create(ownerId: string, tenantId: string, dto: CreateVenueDto) {
     const supabase = this.supabaseService.getAdminClient();
+    
+    // Verify owner has this tenant
+    const { data: owner } = await supabase
+      .from('users')
+      .select('tenant_id')
+      .eq('id', ownerId)
+      .single();
+
+    if (!owner || owner.tenant_id !== tenantId) {
+      throw new ForbiddenException('Invalid tenant access');
+    }
     
     const { data: venue, error } = await supabase
       .from('venues')
       .insert({
         ...dto,
         owner_id: ownerId,
+        tenant_id: tenantId, // Auto-assign tenant_id
         status: 'pending', // Requires admin approval
+        is_active: false, // New venues default to inactive
       })
       .select(`
         *,
@@ -31,12 +44,18 @@ export class VenuesService {
     return {
       ...venue,
       ownerId: venue.owner_id,
+      tenantId: venue.tenant_id,
       createdAt: venue.created_at,
       owner: venue.owner,
     };
   }
 
-  async findAll(query: VenueQueryDto) {
+  /**
+   * Find all venues
+   * For owners: filtered by tenant_id
+   * For customers: all active venues (all tenants)
+   */
+  async findAll(query: VenueQueryDto, tenantId?: string) {
     const { city, sportType, lat, lng, page = 1, limit = 10 } = query;
     const supabase = this.supabaseService.getAdminClient();
     const skip = (page - 1) * limit;
@@ -47,9 +66,18 @@ export class VenuesService {
         *,
         grounds!inner(id, name, sport_type, size, price_2hr, price_3hr),
         reviews(count)
-      `)
-      .eq('status', 'active')
-      .eq('grounds.is_active', true);
+      `);
+
+    // Filter by tenant_id for owners, is_active for customers
+    if (tenantId) {
+      // Owner view: show all venues for their tenant (including inactive ones)
+      queryBuilder = queryBuilder.eq('tenant_id', tenantId);
+    } else {
+      // Customer view: only active venues from all tenants
+      queryBuilder = queryBuilder.eq('is_active', true);
+    }
+
+    queryBuilder = queryBuilder.eq('grounds.is_active', true);
 
     if (city) {
       queryBuilder = queryBuilder.eq('city', city);
@@ -62,8 +90,13 @@ export class VenuesService {
     // Get total count
     let countQuery = supabase
       .from('venues')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active');
+      .select('*', { count: 'exact', head: true });
+
+    if (tenantId) {
+      countQuery = countQuery.eq('tenant_id', tenantId);
+    } else {
+      countQuery = countQuery.eq('is_active', true);
+    }
 
     if (city) {
       countQuery = countQuery.eq('city', city);
@@ -92,10 +125,34 @@ export class VenuesService {
     };
   }
 
-  async findOne(id: string) {
+  /**
+   * Get owner's venues (filtered by tenant)
+   */
+  async findMyVenues(ownerId: string, tenantId: string) {
     const supabase = this.supabaseService.getAdminClient();
     
-    const { data: venue, error } = await supabase
+    const { data: venues, error } = await supabase
+      .from('venues')
+      .select(`
+        *,
+        grounds!grounds_venue_id_fkey(id, name, sport_type, size, price_2hr, price_3hr, is_active),
+        operating_hours!operating_hours_venue_id_fkey(*)
+      `)
+      .eq('tenant_id', tenantId)
+      .eq('owner_id', ownerId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch venues: ${error.message}`);
+    }
+
+    return venues || [];
+  }
+
+  async findOne(id: string, tenantId?: string, role?: string) {
+    const supabase = this.supabaseService.getAdminClient();
+    
+    let queryBuilder = supabase
       .from('venues')
       .select(`
         *,
@@ -110,11 +167,22 @@ export class VenuesService {
           customer:users!reviews_customer_id_fkey(id, name)
         )
       `)
-      .eq('id', id)
-      .single();
+      .eq('id', id);
+
+    // For customers, only allow viewing active venues
+    if (role === 'customer' || (!tenantId && role !== 'owner' && role !== 'admin')) {
+      queryBuilder = queryBuilder.eq('is_active', true);
+    }
+
+    const { data: venue, error } = await queryBuilder.single();
 
     if (!venue || error) {
       throw new NotFoundException('Venue not found');
+    }
+
+    // Additional tenant check for owners
+    if (tenantId && venue.tenant_id !== tenantId && role === 'owner') {
+      throw new ForbiddenException('You do not have permission to view this venue');
     }
 
     // Get reviews count separately
@@ -133,13 +201,13 @@ export class VenuesService {
     };
   }
 
-  async update(id: string, ownerId: string, dto: UpdateVenueDto) {
+  async update(id: string, ownerId: string, tenantId: string, dto: UpdateVenueDto) {
     const supabase = this.supabaseService.getAdminClient();
     
-    // Check if venue exists and belongs to owner
+    // Check if venue exists and belongs to owner's tenant
     const { data: venue, error: findError } = await supabase
       .from('venues')
-      .select('owner_id')
+      .select('owner_id, tenant_id')
       .eq('id', id)
       .single();
 
@@ -147,7 +215,7 @@ export class VenuesService {
       throw new NotFoundException('Venue not found');
     }
 
-    if (venue.owner_id !== ownerId) {
+    if (venue.owner_id !== ownerId || venue.tenant_id !== tenantId) {
       throw new ForbiddenException('You do not have permission to update this venue');
     }
 
@@ -163,6 +231,36 @@ export class VenuesService {
     }
 
     return updatedVenue;
+  }
+
+  async remove(id: string, ownerId: string, tenantId: string) {
+    const supabase = this.supabaseService.getAdminClient();
+    
+    // Check if venue exists and belongs to owner's tenant
+    const { data: venue, error: findError } = await supabase
+      .from('venues')
+      .select('owner_id, tenant_id')
+      .eq('id', id)
+      .single();
+
+    if (!venue || findError) {
+      throw new NotFoundException('Venue not found');
+    }
+
+    if (venue.owner_id !== ownerId || venue.tenant_id !== tenantId) {
+      throw new ForbiddenException('You do not have permission to delete this venue');
+    }
+
+    const { error: deleteError } = await supabase
+      .from('venues')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete venue: ${deleteError.message}`);
+    }
+
+    return { message: 'Venue deleted successfully' };
   }
 
   async approve(id: string) {
@@ -197,6 +295,76 @@ export class VenuesService {
     }
 
     return venue;
+  }
+
+  /**
+   * Activate a venue (owner only, tenant-scoped)
+   */
+  async activate(id: string, ownerId: string, tenantId: string) {
+    const supabase = this.supabaseService.getAdminClient();
+    
+    // Check if venue exists and belongs to owner's tenant
+    const { data: venue, error: findError } = await supabase
+      .from('venues')
+      .select('owner_id, tenant_id')
+      .eq('id', id)
+      .single();
+
+    if (!venue || findError) {
+      throw new NotFoundException('Venue not found');
+    }
+
+    if (venue.owner_id !== ownerId || venue.tenant_id !== tenantId) {
+      throw new ForbiddenException('You do not have permission to activate this venue');
+    }
+
+    const { data: updatedVenue, error: updateError } = await supabase
+      .from('venues')
+      .update({ is_active: true })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError || !updatedVenue) {
+      throw new Error(`Failed to activate venue: ${updateError?.message}`);
+    }
+
+    return updatedVenue;
+  }
+
+  /**
+   * Deactivate a venue (owner only, tenant-scoped)
+   */
+  async deactivate(id: string, ownerId: string, tenantId: string) {
+    const supabase = this.supabaseService.getAdminClient();
+    
+    // Check if venue exists and belongs to owner's tenant
+    const { data: venue, error: findError } = await supabase
+      .from('venues')
+      .select('owner_id, tenant_id')
+      .eq('id', id)
+      .single();
+
+    if (!venue || findError) {
+      throw new NotFoundException('Venue not found');
+    }
+
+    if (venue.owner_id !== ownerId || venue.tenant_id !== tenantId) {
+      throw new ForbiddenException('You do not have permission to deactivate this venue');
+    }
+
+    const { data: updatedVenue, error: updateError } = await supabase
+      .from('venues')
+      .update({ is_active: false })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError || !updatedVenue) {
+      throw new Error(`Failed to deactivate venue: ${updateError?.message}`);
+    }
+
+    return updatedVenue;
   }
 }
 

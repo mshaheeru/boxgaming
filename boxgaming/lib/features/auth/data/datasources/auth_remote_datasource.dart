@@ -9,6 +9,7 @@ abstract class AuthRemoteDataSource {
   Future<AuthResponseModel> signUp(String email, String password, String? name);
   Future<AuthResponseModel> signIn(String email, String password);
   Future<UserModel> getCurrentUser();
+  Future<void> changePassword(String currentPassword, String newPassword);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -130,6 +131,45 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       throw ServerException(errorMessage);
     } catch (e) {
       throw ServerException('Unexpected error: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    try {
+      final response = await apiClient.dio.post(
+        ApiConstants.changePassword,
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+      
+      // Success - no data to return
+      if (response.statusCode != 200) {
+        throw ServerException('Failed to change password');
+      }
+    } on DioException catch (e) {
+      String errorMessage = 'Failed to change password';
+      
+      if (e.response != null) {
+        errorMessage = e.response?.data['message'] ?? 
+                     e.response?.data['error'] ?? 
+                     'Server error: ${e.response?.statusCode}';
+      } else {
+        errorMessage = e.message ?? 'Network error occurred';
+      }
+      
+      throw ServerException(errorMessage);
+    } catch (e) {
+      if (e is ServerException) {
+        rethrow;
+      }
+      throw ServerException('Failed to change password: ${e.toString()}');
     }
   }
 }

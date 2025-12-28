@@ -12,6 +12,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { CommonModule } from './common/common.module';
 import { HealthModule } from './health/health.module';
 import { SupabaseModule } from './supabase/supabase.module';
+import { TenantsModule } from './tenants/tenants.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SupabaseModule } from './supabase/supabase.module';
     HealthModule,
     AuthModule,
     UsersModule,
+    TenantsModule,
     VenuesModule,
     GroundsModule,
     BookingsModule,

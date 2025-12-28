@@ -10,6 +10,10 @@ class UserModel {
   final String? email;
   final String? name;
   final String role;
+  @JsonKey(name: 'tenant_id')
+  final String? tenantId;
+  @JsonKey(name: 'requires_password_change')
+  final bool? requiresPasswordChange;
   @JsonKey(name: 'createdAt')
   final DateTime? createdAt;
 
@@ -19,6 +23,8 @@ class UserModel {
     this.email,
     this.name,
     required this.role,
+    this.tenantId,
+    this.requiresPasswordChange,
     this.createdAt,
   });
 
@@ -33,6 +39,8 @@ class UserModel {
       phone: phone ?? email ?? '',
       name: name,
       role: _parseRole(role),
+      tenantId: tenantId,
+      requiresPasswordChange: requiresPasswordChange ?? false,
       createdAt: createdAt ?? DateTime.now(),
     );
   }

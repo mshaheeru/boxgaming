@@ -100,6 +100,11 @@ export class BookingsController {
     @Request() req,
     @Query('type') type: 'upcoming' | 'past' = 'upcoming',
   ) {
+    // If owner, return bookings for their tenant's venues
+    if (req.user.role === 'owner' && req.user.tenant_id) {
+      return this.bookingsService.getOwnerBookings(req.user.id, req.user.tenant_id);
+    }
+    // Otherwise, return customer bookings
     return this.bookingsService.getMyBookings(req.user.id, type);
   }
 
@@ -125,7 +130,11 @@ export class BookingsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mark booking as started (owner only)' })
   async markStarted(@Param('id') id: string, @Request() req) {
-    return this.bookingsService.markStarted(id, req.user.id);
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.bookingsService.markStarted(id, req.user.id, tenantId);
   }
 
   @Post(':id/complete')
@@ -134,6 +143,10 @@ export class BookingsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mark booking as completed (owner only)' })
   async markCompleted(@Param('id') id: string, @Request() req) {
-    return this.bookingsService.markCompleted(id, req.user.id);
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.bookingsService.markCompleted(id, req.user.id, tenantId);
   }
 }

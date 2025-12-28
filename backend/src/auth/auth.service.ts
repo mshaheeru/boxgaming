@@ -89,6 +89,7 @@ export class AuthService {
       sub: user.id,
       email: authData.user.email,
       role: user.role,
+      tenant_id: user.tenant_id || null, // Include tenant_id for owners
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -100,6 +101,8 @@ export class AuthService {
         email: authData.user.email,
         name: user.name,
         role: user.role,
+        tenant_id: user.tenant_id || null,
+        requires_password_change: user.requires_password_change || false,
         createdAt: user.created_at || new Date().toISOString(),
       },
     };
@@ -172,11 +175,15 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    // Log for debugging
+    console.log(`[AuthService] Sign in - User ID: ${userId}, Requires password change: ${user.requires_password_change}`);
+
     // Generate JWT token
     const payload = {
       sub: user.id,
       email: authData.user.email,
       role: user.role,
+      tenant_id: user.tenant_id || null, // Include tenant_id for owners
     };
 
     const accessToken = this.jwtService.sign(payload);
@@ -188,6 +195,8 @@ export class AuthService {
         email: authData.user.email,
         name: user.name,
         role: user.role,
+        tenant_id: user.tenant_id || null,
+        requires_password_change: user.requires_password_change || false,
         createdAt: user.created_at || new Date().toISOString(),
       },
     };
@@ -201,7 +210,7 @@ export class AuthService {
     
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, phone, name, role')
+      .select('id, phone, name, role, tenant_id, requires_password_change')
       .eq('id', userId)
       .single();
 
@@ -210,6 +219,63 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  /**
+   * Change password for owner (first login or regular change)
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
+    const supabase = this.supabaseService.getAdminClient();
+    const auth = this.supabaseService.getAuth();
+    const adminAuth = this.supabaseService.getAdminClient().auth.admin;
+
+    // Verify user exists in our users table
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, phone')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Get user email from Supabase Auth (not from users table)
+    const { data: authUser, error: authUserError } = await adminAuth.getUserById(userId);
+    
+    if (authUserError || !authUser?.user?.email) {
+      throw new UnauthorizedException('User not found in authentication system');
+    }
+
+    const userEmail = authUser.user.email;
+
+    // Verify current password by attempting sign in
+    const { error: signInError } = await auth.signInWithPassword({
+      email: userEmail,
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // Update password using admin client
+    const { error: updateError } = await adminAuth.updateUserById(userId, {
+      password: newPassword,
+    });
+
+    if (updateError) {
+      throw new BadRequestException(`Failed to update password: ${updateError.message}`);
+    }
+
+    // Clear requires_password_change flag and temporary_password
+    await supabase
+      .from('users')
+      .update({ 
+        requires_password_change: false,
+        temporary_password: null, // Clear temporary password after change
+      })
+      .eq('id', userId);
   }
 }
 

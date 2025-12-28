@@ -11,13 +11,13 @@ export class GroundsService {
     private venuesService: VenuesService,
   ) {}
 
-  async create(venueId: string, ownerId: string, dto: CreateGroundDto) {
+  async create(venueId: string, ownerId: string, tenantId: string, dto: CreateGroundDto) {
     const supabase = this.supabaseService.getAdminClient();
     
-    // Verify venue ownership
+    // Verify venue ownership and tenant
     const { data: venue, error: venueError } = await supabase
       .from('venues')
-      .select('owner_id')
+      .select('owner_id, tenant_id')
       .eq('id', venueId)
       .single();
 
@@ -25,7 +25,7 @@ export class GroundsService {
       throw new NotFoundException('Venue not found');
     }
 
-    if (venue.owner_id !== ownerId) {
+    if (venue.owner_id !== ownerId || venue.tenant_id !== tenantId) {
       throw new ForbiddenException('You do not have permission to add grounds to this venue');
     }
 
@@ -111,14 +111,21 @@ export class GroundsService {
     };
   }
 
-  async update(id: string, ownerId: string, dto: UpdateGroundDto) {
+  async update(id: string, ownerId: string, tenantId: string, dto: UpdateGroundDto) {
     const ground = await this.findOne(id);
 
-    if (ground.venue.owner_id !== ownerId) {
+    // Verify venue belongs to owner's tenant
+    const supabase = this.supabaseService.getAdminClient();
+    const { data: venue } = await supabase
+      .from('venues')
+      .select('tenant_id')
+      .eq('id', ground.venue_id)
+      .single();
+
+    if (ground.venue.owner_id !== ownerId || venue?.tenant_id !== tenantId) {
       throw new ForbiddenException('You do not have permission to update this ground');
     }
 
-    const supabase = this.supabaseService.getAdminClient();
     const updateData: any = { ...dto };
     
     if (dto.sportType) updateData.sport_type = dto.sportType;
@@ -152,16 +159,22 @@ export class GroundsService {
     };
   }
 
-  async remove(id: string, ownerId: string) {
+  async remove(id: string, ownerId: string, tenantId: string) {
     const ground = await this.findOne(id);
 
-    if (ground.venue.owner_id !== ownerId) {
+    // Verify venue belongs to owner's tenant
+    const supabase = this.supabaseService.getAdminClient();
+    const { data: venue } = await supabase
+      .from('venues')
+      .select('tenant_id')
+      .eq('id', ground.venue_id)
+      .single();
+
+    if (ground.venue.owner_id !== ownerId || venue?.tenant_id !== tenantId) {
       throw new ForbiddenException('You do not have permission to delete this ground');
     }
 
     // Soft delete
-    const supabase = this.supabaseService.getAdminClient();
-    
     const { data: updatedGround, error } = await supabase
       .from('grounds')
       .update({ is_active: false })

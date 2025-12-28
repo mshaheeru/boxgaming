@@ -11,6 +11,7 @@ import '../../features/auth/domain/usecases/sign_up_usecase.dart';
 import '../../features/auth/domain/usecases/sign_in_usecase.dart';
 import '../../features/auth/domain/usecases/get_current_user_usecase.dart';
 import '../../features/auth/domain/usecases/logout_usecase.dart';
+import '../../features/auth/domain/usecases/change_password_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/venues/presentation/bloc/venues_bloc.dart';
 import '../../features/venues/domain/usecases/get_venues_usecase.dart';
@@ -39,6 +40,20 @@ import '../../features/owner/domain/usecases/mark_booking_completed_usecase.dart
 import '../../features/owner/domain/repositories/owner_repository.dart';
 import '../../features/owner/data/repositories/owner_repository_impl.dart';
 import '../../features/owner/data/datasources/owner_remote_datasource.dart';
+import '../../features/owner/presentation/bloc/venue_management_bloc.dart';
+import '../../features/owner/domain/usecases/get_my_venues_usecase.dart';
+import '../../features/owner/domain/usecases/create_venue_usecase.dart';
+import '../../features/owner/domain/usecases/update_venue_usecase.dart';
+import '../../features/owner/domain/usecases/activate_venue_usecase.dart';
+import '../../features/owner/domain/usecases/deactivate_venue_usecase.dart';
+import '../../features/owner/domain/repositories/venue_management_repository.dart';
+import '../../features/owner/data/repositories/venue_management_repository_impl.dart';
+import '../../features/owner/data/datasources/venue_management_remote_datasource.dart';
+import '../../features/admin/presentation/bloc/admin_bloc.dart';
+import '../../features/admin/domain/usecases/create_owner_usecase.dart';
+import '../../features/admin/domain/repositories/admin_repository.dart';
+import '../../features/admin/data/repositories/admin_repository_impl.dart';
+import '../../features/admin/data/datasources/admin_remote_datasource.dart';
 
 final sl = GetIt.instance;
 
@@ -59,6 +74,7 @@ Future<void> init() async {
       signInUseCase: sl(),
       getCurrentUserUseCase: sl(),
       logoutUseCase: sl(),
+      changePasswordUseCase: sl(),
     ),
   );
 
@@ -67,6 +83,7 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SignInUseCase(sl()));
   sl.registerLazySingleton(() => GetCurrentUserUseCase(sl()));
   sl.registerLazySingleton(() => LogoutUseCase(sl()));
+  sl.registerLazySingleton(() => ChangePasswordUseCase(sl()));
 
   // Repository (LazySingleton)
   sl.registerLazySingleton<AuthRepository>(
@@ -153,6 +170,46 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<OwnerRemoteDataSource>(
     () => OwnerRemoteDataSourceImpl(sl()),
+  );
+
+  //! Features - Venue Management (Owner)
+  sl.registerFactory(
+    () => VenueManagementBloc(
+      getMyVenuesUseCase: sl(),
+      createVenueUseCase: sl(),
+      updateVenueUseCase: sl(),
+      activateVenueUseCase: sl(),
+      deactivateVenueUseCase: sl(),
+    ),
+  );
+  sl.registerLazySingleton(() => GetMyVenuesUseCase(sl()));
+  sl.registerLazySingleton(() => CreateVenueUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateVenueUseCase(sl()));
+  sl.registerLazySingleton(() => ActivateVenueUseCase(sl()));
+  sl.registerLazySingleton(() => DeactivateVenueUseCase(sl()));
+  sl.registerLazySingleton<VenueManagementRepository>(
+    () => VenueManagementRepositoryImpl(remoteDataSource: sl()),
+  );
+  sl.registerLazySingleton<VenueManagementRemoteDataSource>(
+    () => VenueManagementRemoteDataSourceImpl(sl()),
+  );
+
+  //! Features - Admin
+  // Register data sources and repositories first
+  sl.registerLazySingleton<AdminRemoteDataSource>(
+    () => AdminRemoteDataSourceImpl(sl()),
+  );
+  sl.registerLazySingleton<AdminRepository>(
+    () => AdminRepositoryImpl(remoteDataSource: sl()),
+  );
+  // Then register use cases
+  sl.registerLazySingleton(() => CreateOwnerUseCase(sl()));
+  // Finally register Bloc
+  sl.registerFactory(
+    () => AdminBloc(
+      createOwnerUseCase: sl(),
+      adminRemoteDataSource: sl(),
+    ),
   );
 }
 

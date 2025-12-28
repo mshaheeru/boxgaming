@@ -19,6 +19,8 @@ class VenueModel {
   final double rating;
   @JsonKey(defaultValue: 'pending')
   final String status;
+  @JsonKey(name: 'is_active', defaultValue: false)
+  final bool isActive;
   @JsonKey(name: 'created_at', fromJson: _dateTimeFromJson)
   final DateTime createdAt;
   @JsonKey(name: 'grounds', fromJson: _groundsFromJson)
@@ -37,6 +39,7 @@ class VenueModel {
     required this.photos,
     required this.rating,
     required this.status,
+    this.isActive = false,
     required this.createdAt,
     required this.grounds,
     this.count,
@@ -59,6 +62,7 @@ class VenueModel {
       photos: photos,
       rating: rating,
       status: _parseStatus(status),
+      isActive: isActive,
       createdAt: createdAt,
       grounds: grounds.map((g) => g.toEntity(parentVenueId: id)).toList(),
       reviewCount: count?['reviews'] as int? ?? 0,

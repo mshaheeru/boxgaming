@@ -26,6 +26,7 @@ class VenueEntity extends Equatable {
   final List<String> photos;
   final double rating;
   final VenueStatus status;
+  final bool isActive;
   final DateTime createdAt;
   final List<GroundEntity> grounds;
   final int reviewCount;
@@ -41,6 +42,7 @@ class VenueEntity extends Equatable {
     required this.photos,
     required this.rating,
     required this.status,
+    this.isActive = false,
     required this.createdAt,
     required this.grounds,
     required this.reviewCount,
@@ -56,12 +58,14 @@ class VenueEntity extends Equatable {
         lng,
         description,
         photos,
-        rating,
-        status,
-        createdAt,
+      rating,
+      status,
+      isActive,
+      createdAt,
         grounds,
         reviewCount,
       ];
 }
+
 
 

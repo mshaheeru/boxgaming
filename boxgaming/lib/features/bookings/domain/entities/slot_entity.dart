@@ -16,3 +16,4 @@ class SlotEntity extends Equatable {
 }
 
 
+

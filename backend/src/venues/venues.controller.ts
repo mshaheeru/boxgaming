@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -29,19 +30,41 @@ export class VenuesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new venue (owner only)' })
   async create(@Request() req, @Body() dto: CreateVenueDto) {
-    return this.venuesService.create(req.user.id, dto);
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.venuesService.create(req.user.id, tenantId, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all venues with filters' })
-  async findAll(@Query() query: VenueQueryDto) {
-    return this.venuesService.findAll(query);
+  async findAll(@Query() query: VenueQueryDto, @Request() req?: any) {
+    // If user is owner, filter by their tenant_id
+    // If customer or no auth, show all active venues
+    const tenantId = req?.user?.tenant_id || null;
+    return this.venuesService.findAll(query, tenantId);
+  }
+
+  @Get('my-venues')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('owner')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get owner\'s venues (filtered by tenant)' })
+  async findMyVenues(@Request() req) {
+    const tenantId = req.user.tenant_id;
+    if (!tenantId) {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.venuesService.findMyVenues(req.user.id, tenantId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get venue by ID' })
-  async findOne(@Param('id') id: string) {
-    return this.venuesService.findOne(id);
+  async findOne(@Param('id') id: string, @Request() req?: any) {
+    const tenantId = req?.user?.tenant_id || null;
+    const role = req?.user?.role || null;
+    return this.venuesService.findOne(id, tenantId, role);
   }
 
   @Put(':id')
@@ -54,7 +77,24 @@ export class VenuesController {
     @Request() req,
     @Body() dto: UpdateVenueDto,
   ) {
-    return this.venuesService.update(id, req.user.id, dto);
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.venuesService.update(id, req.user.id, tenantId, dto);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('owner', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete venue (owner only)' })
+  async remove(@Param('id') id: string, @Request() req) {
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.venuesService.remove(id, req.user.id, tenantId);
   }
 
   @Put(':id/approve')
@@ -73,5 +113,31 @@ export class VenuesController {
   @ApiOperation({ summary: 'Suspend venue (admin only)' })
   async suspend(@Param('id') id: string) {
     return this.venuesService.suspend(id);
+  }
+
+  @Put(':id/activate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('owner', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Activate venue (owner only, tenant-scoped)' })
+  async activate(@Param('id') id: string, @Request() req) {
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.venuesService.activate(id, req.user.id, tenantId);
+  }
+
+  @Put(':id/deactivate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('owner', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Deactivate venue (owner only, tenant-scoped)' })
+  async deactivate(@Param('id') id: string, @Request() req) {
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.venuesService.deactivate(id, req.user.id, tenantId);
   }
 }

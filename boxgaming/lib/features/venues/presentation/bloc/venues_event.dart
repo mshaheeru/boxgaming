@@ -46,3 +46,4 @@ class SearchVenuesEvent extends VenuesEvent {
 }
 
 
+

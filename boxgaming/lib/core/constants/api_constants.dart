@@ -16,11 +16,15 @@ class ApiConstants {
   // Auth endpoints
   static const String signUp = '/auth/signup';
   static const String signIn = '/auth/signin';
+  static const String changePassword = '/auth/change-password';
   
   // Venues endpoints
   static const String venues = '/venues';
   static String venueDetails(String id) => '/venues/$id';
   static String venueGrounds(String venueId) => '/venues/$venueId/grounds';
+  static const String myVenues = '/venues/my-venues';
+  static String activateVenue(String id) => '/venues/$id/activate';
+  static String deactivateVenue(String id) => '/venues/$id/deactivate';
   
   // Bookings endpoints
   static String availableSlots(String groundId) => '/bookings/grounds/$groundId/slots';
@@ -36,5 +40,12 @@ class ApiConstants {
   
   // Users endpoints
   static const String currentUser = '/users/me';
+  
+  // Admin endpoints
+  static const String createOwner = '/tenants';
+  static const String getAllTenants = '/tenants';
+  static const String getAllBookings = '/bookings';
+  static const String getAllVenues = '/venues';
+  static String resetOwnerPassword(String tenantId) => '/tenants/$tenantId/owner/reset-password';
 }
 

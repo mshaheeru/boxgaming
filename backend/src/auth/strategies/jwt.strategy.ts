@@ -22,7 +22,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException();
     }
-    return user;
+    // Include tenant_id from payload (set during login) or from user
+    return {
+      ...user,
+      tenant_id: payload.tenant_id || user.tenant_id || null,
+    };
   }
 }
 

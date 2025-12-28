@@ -32,7 +32,11 @@ export class GroundsController {
     @Request() req,
     @Body() dto: CreateGroundDto,
   ) {
-    return this.groundsService.create(venueId, req.user.id, dto);
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.groundsService.create(venueId, req.user.id, tenantId, dto);
   }
 
   @Get()
@@ -57,7 +61,11 @@ export class GroundsController {
     @Request() req,
     @Body() dto: UpdateGroundDto,
   ) {
-    return this.groundsService.update(id, req.user.id, dto);
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.groundsService.update(id, req.user.id, tenantId, dto);
   }
 
   @Delete(':id')
@@ -66,6 +74,10 @@ export class GroundsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete ground (owner only)' })
   async remove(@Param('id') id: string, @Request() req) {
-    return this.groundsService.remove(id, req.user.id);
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.groundsService.remove(id, req.user.id, tenantId);
   }
 }
