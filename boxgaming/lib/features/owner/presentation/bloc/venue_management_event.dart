@@ -48,3 +48,32 @@ class DeactivateVenueEvent extends VenueManagementEvent {
   List<Object?> get props => [id];
 }
 
+class UploadVenuePhotoEvent extends VenueManagementEvent {
+  final String venueId;
+  final String photoPath;
+
+  const UploadVenuePhotoEvent(this.venueId, this.photoPath);
+
+  @override
+  List<Object?> get props => [venueId, photoPath];
+}
+
+class CreateOperatingHoursEvent extends VenueManagementEvent {
+  final String venueId;
+  final List<Map<String, dynamic>> operatingHours;
+
+  const CreateOperatingHoursEvent(this.venueId, this.operatingHours);
+
+  @override
+  List<Object?> get props => [venueId, operatingHours];
+}
+
+class CompleteVenueSetupEvent extends VenueManagementEvent {
+  final String venueId;
+
+  const CompleteVenueSetupEvent(this.venueId);
+
+  @override
+  List<Object?> get props => [venueId];
+}
+

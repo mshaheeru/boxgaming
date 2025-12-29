@@ -23,30 +23,69 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     CreateOwnerEvent event,
     Emitter<AdminState> emit,
   ) async {
+    print('🚀 _onCreateOwner called');
+    print('   Email: ${event.email}');
+    print('   Tenant Name: ${event.tenantName}');
+    print('   Name: ${event.name}');
+    print('   Has temp password: ${event.temporaryPassword != null}');
+    
     try {
+      if (isClosed) {
+        print('⚠️ Bloc is closed, cannot emit');
+        return;
+      }
       emit(AdminLoading());
+      print('📤 Emitted AdminLoading');
+      
       final result = await createOwnerUseCase(
         email: event.email,
         tenantName: event.tenantName,
         name: event.name,
         temporaryPassword: event.temporaryPassword,
       );
+      
+      print('📥 Use case returned, processing result...');
+      
       result.fold(
         (failure) {
           print('❌ Create owner failed: ${failure.message}');
-          emit(AdminError(failure.message));
+          if (!isClosed) {
+            emit(AdminError(failure.message));
+            print('📤 Emitted AdminError');
+          }
         },
         (response) {
-          print('✅ Owner created! Email: ${response.email}, Password: ${response.temporaryPassword}');
-          emit(OwnerCreatedSuccess(
-            email: response.email,
-            temporaryPassword: response.temporaryPassword,
-          ));
+          print('✅ Owner created successfully!');
+          print('   Response email: ${response.email}');
+          print('   Response password: ${response.temporaryPassword}');
+          
+          if (response.email.isEmpty || response.temporaryPassword.isEmpty) {
+            print('⚠️ WARNING: Email or password is empty in response!');
+            if (!isClosed) {
+              emit(AdminError('Owner created but credentials are missing. Please check backend response.'));
+              print('📤 Emitted AdminError (missing credentials)');
+            }
+            return;
+          }
+          
+          if (!isClosed) {
+            emit(OwnerCreatedSuccess(
+              email: response.email,
+              temporaryPassword: response.temporaryPassword,
+            ));
+            print('📤 Emitted OwnerCreatedSuccess');
+          } else {
+            print('⚠️ Bloc is closed, cannot emit success state');
+          }
         },
       );
-    } catch (e) {
-      print('❌ Exception creating owner: ${e.toString()}');
-      emit(AdminError('Failed to create owner: ${e.toString()}'));
+    } catch (e, stackTrace) {
+      print('❌ Exception creating owner: $e');
+      print('❌ Stack trace: $stackTrace');
+      if (!isClosed) {
+        emit(AdminError('Failed to create owner: ${e.toString()}'));
+        print('📤 Emitted AdminError (exception)');
+      }
     }
   }
 

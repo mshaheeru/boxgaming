@@ -66,3 +66,16 @@ class VenueManagementError extends VenueManagementState {
   List<Object?> get props => [message];
 }
 
+class PhotoUploaded extends VenueManagementState {
+  final String venueId;
+  final String photoUrl;
+
+  const PhotoUploaded({
+    required this.venueId,
+    required this.photoUrl,
+  });
+
+  @override
+  List<Object?> get props => [venueId, photoUrl];
+}
+

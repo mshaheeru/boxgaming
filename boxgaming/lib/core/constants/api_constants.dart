@@ -22,9 +22,13 @@ class ApiConstants {
   static const String venues = '/venues';
   static String venueDetails(String id) => '/venues/$id';
   static String venueGrounds(String venueId) => '/venues/$venueId/grounds';
+  static String updateGround(String venueId, String groundId) => '/venues/$venueId/grounds/$groundId';
+  static String deleteGround(String venueId, String groundId) => '/venues/$venueId/grounds/$groundId';
   static const String myVenues = '/venues/my-venues';
   static String activateVenue(String id) => '/venues/$id/activate';
   static String deactivateVenue(String id) => '/venues/$id/deactivate';
+  static String uploadVenuePhoto(String id) => '/venues/$id/upload-photo';
+  static String createOperatingHours(String id) => '/venues/$id/operating-hours';
   
   // Bookings endpoints
   static String availableSlots(String groundId) => '/bookings/grounds/$groundId/slots';

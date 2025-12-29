@@ -12,17 +12,34 @@ class OwnerCreationResponseModel {
   });
 
   factory OwnerCreationResponseModel.fromJson(Map<String, dynamic> json) {
-    // Backend returns: { owner: {...}, tenant: {...}, temporaryPassword: "..." }
-    final owner = json['owner'] as Map<String, dynamic>? ?? {};
-    final tempPassword = json['temporaryPassword'] as String? ?? '';
-    
-    print('📦 Parsing response - Owner: ${owner.keys}, Email: ${owner['email']}, TempPassword: $tempPassword');
-    
-    return OwnerCreationResponseModel(
-      owner: owner,
-      tenant: json['tenant'] as Map<String, dynamic>? ?? {},
-      temporaryPassword: tempPassword,
-    );
+    try {
+      // Backend returns: { owner: {...}, tenant: {...}, temporaryPassword: "..." }
+      final owner = json['owner'] as Map<String, dynamic>? ?? {};
+      final tempPassword = json['temporaryPassword'] as String? ?? '';
+      
+      print('📦 Parsing response - Full JSON keys: ${json.keys}');
+      print('📦 Owner keys: ${owner.keys}');
+      print('📦 Owner email: ${owner['email']}');
+      print('📦 Temporary password: $tempPassword');
+      
+      if (tempPassword.isEmpty) {
+        print('⚠️ WARNING: Temporary password is empty!');
+      }
+      if (owner['email'] == null || (owner['email'] as String).isEmpty) {
+        print('⚠️ WARNING: Owner email is empty!');
+      }
+      
+      return OwnerCreationResponseModel(
+        owner: owner,
+        tenant: json['tenant'] as Map<String, dynamic>? ?? {},
+        temporaryPassword: tempPassword,
+      );
+    } catch (e, stackTrace) {
+      print('❌ Error parsing OwnerCreationResponseModel: $e');
+      print('❌ Stack trace: $stackTrace');
+      print('❌ JSON data: $json');
+      rethrow;
+    }
   }
 
   Map<String, dynamic> toJson() {

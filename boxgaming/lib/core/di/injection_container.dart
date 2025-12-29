@@ -173,6 +173,20 @@ Future<void> init() async {
   );
 
   //! Features - Venue Management (Owner)
+  // Register data sources and repositories first
+  sl.registerLazySingleton<VenueManagementRemoteDataSource>(
+    () => VenueManagementRemoteDataSourceImpl(sl()),
+  );
+  sl.registerLazySingleton<VenueManagementRepository>(
+    () => VenueManagementRepositoryImpl(remoteDataSource: sl()),
+  );
+  // Then register use cases
+  sl.registerLazySingleton(() => GetMyVenuesUseCase(sl()));
+  sl.registerLazySingleton(() => CreateVenueUseCase(sl()));
+  sl.registerLazySingleton(() => UpdateVenueUseCase(sl()));
+  sl.registerLazySingleton(() => ActivateVenueUseCase(sl()));
+  sl.registerLazySingleton(() => DeactivateVenueUseCase(sl()));
+  // Finally register Bloc
   sl.registerFactory(
     () => VenueManagementBloc(
       getMyVenuesUseCase: sl(),
@@ -180,18 +194,8 @@ Future<void> init() async {
       updateVenueUseCase: sl(),
       activateVenueUseCase: sl(),
       deactivateVenueUseCase: sl(),
+      remoteDataSource: sl(),
     ),
-  );
-  sl.registerLazySingleton(() => GetMyVenuesUseCase(sl()));
-  sl.registerLazySingleton(() => CreateVenueUseCase(sl()));
-  sl.registerLazySingleton(() => UpdateVenueUseCase(sl()));
-  sl.registerLazySingleton(() => ActivateVenueUseCase(sl()));
-  sl.registerLazySingleton(() => DeactivateVenueUseCase(sl()));
-  sl.registerLazySingleton<VenueManagementRepository>(
-    () => VenueManagementRepositoryImpl(remoteDataSource: sl()),
-  );
-  sl.registerLazySingleton<VenueManagementRemoteDataSource>(
-    () => VenueManagementRemoteDataSourceImpl(sl()),
   );
 
   //! Features - Admin

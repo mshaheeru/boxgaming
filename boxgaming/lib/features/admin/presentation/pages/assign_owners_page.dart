@@ -34,7 +34,7 @@ class _AssignOwnersPageState extends State<AssignOwnersPage> {
     super.dispose();
   }
 
-  void _handleCreateOwner() {
+  void _handleCreateOwner(BuildContext context) {
     print('🔘 Create Owner button pressed');
     if (_formKey.currentState == null) {
       print('❌ Form key is null!');
@@ -48,7 +48,14 @@ class _AssignOwnersPageState extends State<AssignOwnersPage> {
       print('   Tenant Name: ${_tenantNameController.text.trim()}');
       print('   Name: ${_nameController.text.trim()}');
       print('   Auto-generate: $_autoGeneratePassword');
-      context.read<AdminBloc>().add(
+      
+      // Get the bloc from the context that has access to BlocProvider
+      final adminBloc = context.read<AdminBloc>();
+      if (adminBloc.isClosed) {
+        print('❌ AdminBloc is closed!');
+        return;
+      }
+      adminBloc.add(
         CreateOwnerEvent(
           email: _emailController.text.trim(),
           tenantName: _tenantNameController.text.trim(),
@@ -94,13 +101,27 @@ class _AssignOwnersPageState extends State<AssignOwnersPage> {
         ),
         drawer: const AppDrawer(),
         body: BlocConsumer<AdminBloc, AdminState>(
-          listener: (context, state) {
+          listener: (listenerContext, state) {
           print('🔔 AdminBloc state changed: ${state.runtimeType}');
           if (state is OwnerCreatedSuccess) {
-            print('✅ Owner created successfully! Email: ${state.email}, Password: ${state.temporaryPassword}');
+            print('✅ Owner created successfully!');
+            print('   Email: ${state.email}');
+            print('   Password: ${state.temporaryPassword}');
+            
+            if (state.email.isEmpty || state.temporaryPassword.isEmpty) {
+              print('⚠️ WARNING: Email or password is empty!');
+              ScaffoldMessenger.of(listenerContext).showSnackBar(
+                SnackBar(
+                  content: Text('Owner created but credentials are missing. Please check backend response.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+              return;
+            }
+            
             // Show success snackbar
-            ScaffoldMessenger.of(context).clearSnackBars(); // Clear any existing snackbars
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(listenerContext).clearSnackBars(); // Clear any existing snackbars
+            ScaffoldMessenger.of(listenerContext).showSnackBar(
               SnackBar(
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -166,7 +187,7 @@ class _AssignOwnersPageState extends State<AssignOwnersPage> {
                             tooltip: 'Copy password',
                             onPressed: () async {
                               await Clipboard.setData(ClipboardData(text: state.temporaryPassword));
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(listenerContext).showSnackBar(
                                 SnackBar(
                                   content: Text(
                                     'Password copied!',
@@ -230,8 +251,9 @@ class _AssignOwnersPageState extends State<AssignOwnersPage> {
             // Don't auto-navigate - let user see the snackbar and manually navigate if needed
           } else if (state is AdminError) {
             print('❌ Admin error: ${state.message}');
-            ScaffoldMessenger.of(context).clearSnackBars(); // Clear any existing snackbars
-            ScaffoldMessenger.of(context).showSnackBar(
+            print('❌ Error state details: ${state.toString()}');
+            ScaffoldMessenger.of(listenerContext).clearSnackBars(); // Clear any existing snackbars
+            ScaffoldMessenger.of(listenerContext).showSnackBar(
               SnackBar(
                 content: Row(
                   children: [
@@ -259,7 +281,7 @@ class _AssignOwnersPageState extends State<AssignOwnersPage> {
             );
           }
           },
-          builder: (context, state) {
+          builder: (builderContext, state) {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Form(
@@ -497,7 +519,7 @@ class _AssignOwnersPageState extends State<AssignOwnersPage> {
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: state is AdminLoading ? null : _handleCreateOwner,
+                      onPressed: state is AdminLoading ? null : () => _handleCreateOwner(builderContext),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: neonRed,
                         foregroundColor: Colors.white,

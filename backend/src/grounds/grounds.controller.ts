@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -41,8 +42,12 @@ export class GroundsController {
 
   @Get()
   @ApiOperation({ summary: 'Get all grounds for a venue' })
-  async findAllByVenue(@Param('venueId') venueId: string) {
-    return this.groundsService.findAllByVenue(venueId);
+  async findAllByVenue(
+    @Param('venueId') venueId: string,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    const includeInactiveBool = includeInactive === 'true';
+    return this.groundsService.findAllByVenue(venueId, includeInactiveBool);
   }
 
   @Get(':id')

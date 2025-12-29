@@ -9,8 +9,11 @@ import {
   Query,
   UseGuards,
   Request,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { VenuesService } from './venues.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -18,6 +21,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { VenueQueryDto } from './dto/venue-query.dto';
+import { CreateOperatingHoursDto } from './dto/create-operating-hours.dto';
 
 @ApiTags('venues')
 @Controller('venues')
@@ -139,5 +143,44 @@ export class VenuesController {
       throw new Error('Owner must have a tenant');
     }
     return this.venuesService.deactivate(id, req.user.id, tenantId);
+  }
+
+  @Post(':id/upload-photo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('owner', 'admin')
+  @UseInterceptors(FileInterceptor('photo'))
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload venue photo (owner only)' })
+  async uploadPhoto(
+    @Param('id') id: string,
+    @Request() req,
+    @UploadedFile() file: any,
+  ) {
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+    return this.venuesService.uploadPhoto(id, req.user.id, tenantId, file);
+  }
+
+  @Post(':id/operating-hours')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('owner', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create operating hours for venue (owner only)' })
+  async createOperatingHours(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() dto: CreateOperatingHoursDto,
+  ) {
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.venuesService.createOperatingHours(id, req.user.id, tenantId, dto);
   }
 }

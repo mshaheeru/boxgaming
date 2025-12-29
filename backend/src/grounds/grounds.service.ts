@@ -32,9 +32,10 @@ export class GroundsService {
     const { data: ground, error } = await supabase
       .from('grounds')
       .insert({
-        ...dto,
+        name: dto.name,
         venue_id: venueId,
         sport_type: dto.sportType,
+        size: dto.size,
         price_2hr: dto.price2hr,
         price_3hr: dto.price3hr,
       })
@@ -55,17 +56,23 @@ export class GroundsService {
     };
   }
 
-  async findAllByVenue(venueId: string) {
+  async findAllByVenue(venueId: string, includeInactive: boolean = false) {
     const supabase = this.supabaseService.getAdminClient();
     
-    const { data: grounds, error } = await supabase
+    let query = supabase
       .from('grounds')
       .select(`
         *,
         venue:venues!grounds_venue_id_fkey(id, name)
       `)
-      .eq('venue_id', venueId)
-      .eq('is_active', true);
+      .eq('venue_id', venueId);
+    
+    // Only filter by is_active if we don't want inactive grounds
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+    
+    const { data: grounds, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch grounds: ${error.message}`);

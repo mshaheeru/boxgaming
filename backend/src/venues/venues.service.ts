@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { VenueQueryDto } from './dto/venue-query.dto';
+import { CreateOperatingHoursDto } from './dto/create-operating-hours.dto';
 
 @Injectable()
 export class VenuesService {
@@ -64,7 +65,7 @@ export class VenuesService {
       .from('venues')
       .select(`
         *,
-        grounds!inner(id, name, sport_type, size, price_2hr, price_3hr),
+        grounds(id, name, sport_type, size, price_2hr, price_3hr, is_active),
         reviews(count)
       `);
 
@@ -74,10 +75,9 @@ export class VenuesService {
       queryBuilder = queryBuilder.eq('tenant_id', tenantId);
     } else {
       // Customer view: only active venues from all tenants
+      // Note: We filter for valid owner_id and tenant_id in application layer below
       queryBuilder = queryBuilder.eq('is_active', true);
     }
-
-    queryBuilder = queryBuilder.eq('grounds.is_active', true);
 
     if (city) {
       queryBuilder = queryBuilder.eq('city', city);
@@ -95,6 +95,8 @@ export class VenuesService {
     if (tenantId) {
       countQuery = countQuery.eq('tenant_id', tenantId);
     } else {
+      // Customer view: only count active venues
+      // Note: We filter for valid owner_id and tenant_id in application layer
       countQuery = countQuery.eq('is_active', true);
     }
 
@@ -111,11 +113,26 @@ export class VenuesService {
       throw new Error(`Failed to fetch venues: ${venuesResult.error.message}`);
     }
 
+    // Filter venues: For customers, ensure they have valid owner_id and tenant_id (not seeded data)
+    // Note: Venues without grounds can still be shown (grounds can be added later)
+    let filteredVenues = venuesResult.data || [];
+    if (!tenantId) {
+      // Customer view: filter to ensure valid owner/tenant (not seeded data)
+      filteredVenues = filteredVenues.filter((venue: any) => {
+        // Must have valid owner_id and tenant_id
+        if (!venue.owner_id || !venue.tenant_id) {
+          return false;
+        }
+        // Venues can be shown even without grounds (they'll be bookable once grounds are added)
+        return true;
+      });
+    }
+
     // TODO: Calculate distance if lat/lng provided
     // For now, just return venues
 
     return {
-      data: venuesResult.data || [],
+      data: filteredVenues,
       meta: {
         total: countResult.count || 0,
         page,
@@ -365,6 +382,149 @@ export class VenuesService {
     }
 
     return updatedVenue;
+  }
+
+  /**
+   * Upload a photo for a venue
+   */
+  async uploadPhoto(
+    id: string,
+    ownerId: string,
+    tenantId: string,
+    file: { buffer: Buffer; originalname: string; mimetype: string },
+  ) {
+    const supabase = this.supabaseService.getAdminClient();
+
+    // Check if venue exists and belongs to owner's tenant
+    const { data: venue, error: findError } = await supabase
+      .from('venues')
+      .select('owner_id, tenant_id, photos')
+      .eq('id', id)
+      .single();
+
+    if (!venue || findError) {
+      throw new NotFoundException('Venue not found');
+    }
+
+    if (venue.owner_id !== ownerId || venue.tenant_id !== tenantId) {
+      throw new ForbiddenException('You do not have permission to upload photos for this venue');
+    }
+
+    // Generate unique filename
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${id}/${Date.now()}.${fileExt}`;
+    const bucketName = 'venue-photos';
+
+    // Check if bucket exists
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some((b) => b.name === bucketName);
+    
+    if (!bucketExists) {
+      // Try to create bucket if it doesn't exist
+      // Note: This requires admin permissions. If it fails, the bucket needs to be created manually in Supabase dashboard
+      const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: 5242880, // 5MB
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      });
+      
+      if (createBucketError) {
+        // If bucket creation fails, provide helpful error message
+        throw new Error(
+          `Storage bucket '${bucketName}' not found. Please create it in Supabase Dashboard: Storage > Create Bucket > Name: ${bucketName}, Public: true. Error: ${createBucketError.message}`
+        );
+      }
+    }
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(bucketName)
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError || !uploadData) {
+      throw new Error(`Failed to upload photo: ${uploadError?.message}`);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(fileName);
+
+    const photoUrl = urlData.publicUrl;
+
+    // Update venue's photos array
+    const currentPhotos = (venue.photos || []) as string[];
+    const updatedPhotos = [...currentPhotos, photoUrl];
+
+    const { data: updatedVenue, error: updateError } = await supabase
+      .from('venues')
+      .update({ photos: updatedPhotos })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError || !updatedVenue) {
+      throw new Error(`Failed to update venue photos: ${updateError?.message}`);
+    }
+
+    return {
+      photoUrl,
+      photos: updatedPhotos,
+    };
+  }
+
+  /**
+   * Create operating hours for a venue
+   */
+  async createOperatingHours(
+    id: string,
+    ownerId: string,
+    tenantId: string,
+    dto: CreateOperatingHoursDto,
+  ) {
+    const supabase = this.supabaseService.getAdminClient();
+
+    // Check if venue exists and belongs to owner's tenant
+    const { data: venue, error: findError } = await supabase
+      .from('venues')
+      .select('owner_id, tenant_id')
+      .eq('id', id)
+      .single();
+
+    if (!venue || findError) {
+      throw new NotFoundException('Venue not found');
+    }
+
+    if (venue.owner_id !== ownerId || venue.tenant_id !== tenantId) {
+      throw new ForbiddenException(
+        'You do not have permission to create operating hours for this venue',
+      );
+    }
+
+    // Delete existing operating hours for this venue
+    await supabase.from('operating_hours').delete().eq('venue_id', id);
+
+    // Insert new operating hours
+    const operatingHoursData = dto.operating_hours.map((oh) => ({
+      venue_id: id,
+      day_of_week: oh.day_of_week,
+      open_time: oh.open_time,
+      close_time: oh.close_time,
+    }));
+
+    const { data: createdHours, error: createError } = await supabase
+      .from('operating_hours')
+      .insert(operatingHoursData)
+      .select();
+
+    if (createError || !createdHours) {
+      throw new Error(`Failed to create operating hours: ${createError?.message}`);
+    }
+
+    return createdHours;
   }
 }
 

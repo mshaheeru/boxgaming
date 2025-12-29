@@ -51,9 +51,35 @@ class AdminRemoteDataSourceImpl implements AdminRemoteDataSource {
       }
 
       final responseData = response.data as Map<String, dynamic>;
-      print('📦 Backend response: ${responseData.keys}');
-      print('📦 Owner data: ${responseData['owner']}');
-      print('📦 Temp password: ${responseData['temporaryPassword']}');
+      print('📦 Backend response keys: ${responseData.keys}');
+      print('📦 Full response: $responseData');
+      
+      // Validate response structure
+      if (!responseData.containsKey('owner')) {
+        print('❌ Response missing "owner" field');
+        throw ServerException('Invalid response: missing owner data');
+      }
+      if (!responseData.containsKey('temporaryPassword')) {
+        print('❌ Response missing "temporaryPassword" field');
+        throw ServerException('Invalid response: missing temporary password');
+      }
+      
+      final owner = responseData['owner'] as Map<String, dynamic>?;
+      final tempPassword = responseData['temporaryPassword'] as String?;
+      
+      print('📦 Owner data: $owner');
+      print('📦 Owner email: ${owner?['email']}');
+      print('📦 Temp password: $tempPassword');
+      
+      if (owner == null) {
+        throw ServerException('Invalid response: owner data is null');
+      }
+      if (tempPassword == null || tempPassword.isEmpty) {
+        throw ServerException('Invalid response: temporary password is missing or empty');
+      }
+      if (owner['email'] == null || (owner['email'] as String).isEmpty) {
+        throw ServerException('Invalid response: owner email is missing or empty');
+      }
       
       return OwnerCreationResponseModel.fromJson(responseData);
     } on DioException catch (e) {
