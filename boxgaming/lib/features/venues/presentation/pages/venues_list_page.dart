@@ -282,43 +282,20 @@ class _VenueCard extends StatelessWidget {
                               );
                             },
                             errorBuilder: (context, error, stackTrace) {
-                              return Container(
+                              // If network image fails, show default image
+                              return Image.asset(
+                                'image/venue.png',
                                 height: 220,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      const Color(0xFF1A1A1A),
-                                      const Color(0xFF2A2A2A),
-                                    ],
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.sports_esports,
-                                  size: 64,
-                                  color: Color(0xFFFF1744),
-                                ),
+                                width: double.infinity,
+                                fit: BoxFit.cover,
                               );
                             },
                           )
-                        : Container(
+                        : Image.asset(
+                            'image/venue.png',
                             height: 220,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  const Color(0xFF1A1A1A),
-                                  const Color(0xFF2A2A2A),
-                                ],
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.sports_esports,
-                              size: 64,
-                              color: Color(0xFFFF1744),
-                            ),
+                            width: double.infinity,
+                            fit: BoxFit.cover,
                           ),
                   ),
                   // Gradient overlay

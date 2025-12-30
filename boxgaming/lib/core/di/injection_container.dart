@@ -25,6 +25,8 @@ import '../../features/bookings/domain/usecases/create_booking_usecase.dart';
 import '../../features/bookings/domain/usecases/get_my_bookings_usecase.dart';
 import '../../features/bookings/domain/usecases/get_booking_details_usecase.dart';
 import '../../features/bookings/domain/usecases/cancel_booking_usecase.dart';
+import '../../features/bookings/domain/usecases/get_operating_hours_usecase.dart';
+import '../../features/bookings/domain/usecases/get_slots_for_date_range_usecase.dart';
 import '../../features/bookings/domain/repositories/bookings_repository.dart';
 import '../../features/bookings/data/repositories/bookings_repository_impl.dart';
 import '../../features/bookings/data/datasources/bookings_remote_datasource.dart';
@@ -128,6 +130,8 @@ Future<void> init() async {
       getMyBookingsUseCase: sl(),
       getBookingDetailsUseCase: sl(),
       cancelBookingUseCase: sl(),
+      getOperatingHoursUseCase: sl(),
+      getSlotsForDateRangeUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetAvailableSlotsUseCase(sl()));
@@ -135,6 +139,8 @@ Future<void> init() async {
   sl.registerLazySingleton(() => GetMyBookingsUseCase(sl()));
   sl.registerLazySingleton(() => GetBookingDetailsUseCase(sl()));
   sl.registerLazySingleton(() => CancelBookingUseCase(sl()));
+  sl.registerLazySingleton(() => GetOperatingHoursUseCase(sl()));
+  sl.registerLazySingleton(() => GetSlotsForDateRangeUseCase(sl()));
   sl.registerLazySingleton<BookingsRepository>(
     () => BookingsRepositoryImpl(remoteDataSource: sl()),
   );

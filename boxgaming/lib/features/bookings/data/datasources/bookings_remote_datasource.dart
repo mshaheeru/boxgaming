@@ -5,11 +5,25 @@ import '../../../../core/utils/date_formatters.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/booking_model.dart';
 import '../models/slot_model.dart';
+import '../models/operating_hours_model.dart';
+import '../models/day_slots_model.dart';
 
 abstract class BookingsRemoteDataSource {
   Future<List<SlotModel>> getAvailableSlots(
     String groundId,
     DateTime date,
+    int duration,
+  );
+  
+  Future<List<OperatingHoursModel>> getOperatingHours(
+    String venueId,
+    String groundId,
+  );
+  
+  Future<Map<String, DaySlotsModel>> getSlotsForDateRange(
+    String groundId,
+    DateTime startDate,
+    DateTime endDate,
     int duration,
   );
   
@@ -63,6 +77,77 @@ class BookingsRemoteDataSourceImpl implements BookingsRemoteDataSource {
       throw ServerException(
         e.response?.data['message'] ?? 'Failed to fetch available slots',
       );
+    }
+  }
+
+  @override
+  Future<List<OperatingHoursModel>> getOperatingHours(
+    String venueId,
+    String groundId,
+  ) async {
+    try {
+      final response = await apiClient.dio.get(
+        ApiConstants.getGroundOperatingHours(venueId, groundId),
+      );
+      final data = response.data as List<dynamic>? ?? [];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map((json) {
+            try {
+              return OperatingHoursModel.fromJson(json);
+            } catch (e) {
+              print('Error parsing operating hours: $e');
+              print('JSON: $json');
+              rethrow;
+            }
+          })
+          .toList();
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data['message'] ?? 'Failed to fetch operating hours',
+      );
+    }
+  }
+
+  @override
+  Future<Map<String, DaySlotsModel>> getSlotsForDateRange(
+    String groundId,
+    DateTime startDate,
+    DateTime endDate,
+    int duration,
+  ) async {
+    try {
+      // Call existing endpoint for each date in the range
+      final Map<String, DaySlotsModel> slotsByDate = {};
+      
+      DateTime currentDate = DateTime(startDate.year, startDate.month, startDate.day);
+      final end = DateTime(endDate.year, endDate.month, endDate.day);
+      
+      while (currentDate.isBefore(end) || currentDate.isAtSameMomentAs(end)) {
+        try {
+          final slots = await getAvailableSlots(groundId, currentDate, duration);
+          // DateTime.weekday returns 1-7 (Monday=1, Sunday=7)
+          // Database uses 0-6 (Sunday=0, Saturday=6)
+          // Convert: Sunday (7) -> 0, Monday (1) -> 1, ..., Saturday (6) -> 6
+          final weekday = currentDate.weekday; // 1-7
+          final dayOfWeek = weekday == 7 ? 0 : weekday; // Convert to 0-6
+          
+          slotsByDate[DateFormatters.formatDate(currentDate)] = DaySlotsModel(
+            date: currentDate,
+            dayOfWeek: dayOfWeek,
+            slots: slots.map((s) => s.toEntity()).toList(),
+          );
+        } catch (e) {
+          // If a date fails, continue with other dates
+          print('Error fetching slots for ${DateFormatters.formatDate(currentDate)}: $e');
+        }
+        
+        currentDate = currentDate.add(const Duration(days: 1));
+      }
+      
+      return slotsByDate;
+    } catch (e) {
+      throw ServerException('Failed to fetch slots for date range: $e');
     }
   }
 

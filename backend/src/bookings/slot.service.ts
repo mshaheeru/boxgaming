@@ -56,27 +56,44 @@ export class SlotService {
     // Get ground details
     const supabase = this.supabaseService.getAdminClient();
     
+    // First, get the ground
     const { data: ground, error: groundError } = await supabase
       .from('grounds')
-      .select(`
-        *,
-        venue:venues!grounds_venue_id_fkey(
-          id,
-          operating_hours:operating_hours!operating_hours_venue_id_fkey(*)
-        ),
-        operating_hours:operating_hours!operating_hours_ground_id_fkey(*)
-      `)
+      .select('*')
       .eq('id', groundId)
       .single();
 
     if (!ground || groundError) {
-      throw new Error('Ground not found');
+      throw new Error(`Ground not found: ${groundError?.message || 'Unknown error'}`);
+    }
+
+    // Get operating hours for this ground
+    const { data: groundOperatingHours, error: ohError } = await supabase
+      .from('operating_hours')
+      .select('*')
+      .eq('ground_id', groundId);
+
+    if (ohError) {
+      throw new Error(`Failed to fetch operating hours: ${ohError.message}`);
     }
 
     // Get operating hours (prefer ground-specific, fallback to venue)
-    const operatingHours = (ground.operating_hours && ground.operating_hours.length > 0)
-      ? ground.operating_hours
-      : (ground.venue?.operating_hours || []);
+    let operatingHours = groundOperatingHours || [];
+    
+    // If no ground-level operating hours, try venue-level (legacy support)
+    if (operatingHours.length === 0 && ground.venue_id) {
+      const { data: venueOperatingHours, error: venueOhError } = await supabase
+        .from('operating_hours')
+        .select('*')
+        .eq('venue_id', ground.venue_id)
+        .is('ground_id', null);
+      
+      if (venueOhError) {
+        throw new Error(`Failed to fetch venue operating hours: ${venueOhError.message}`);
+      }
+      
+      operatingHours = venueOperatingHours || [];
+    }
 
     if (operatingHours.length === 0) {
       return [];
@@ -100,6 +117,12 @@ export class SlotService {
 
     const closeTime = new Date(date);
     closeTime.setHours(closeHour, closeMin, 0, 0);
+    
+    // Handle overnight hours (e.g., 17:00 - 02:30)
+    // If closeTime is earlier than openTime, it means it's the next day
+    if (closeTime.getTime() < openTime.getTime()) {
+      closeTime.setDate(closeTime.getDate() + 1);
+    }
 
     // Get existing bookings and blocked slots
     const dateStr = date.toISOString().split('T')[0];
@@ -220,32 +243,87 @@ export class SlotService {
   ): Slot[] {
     const slots: Slot[] = [];
     const segmentStartMinutes = this.getMinutesFromMidnight(segment.start);
-    const segmentEndMinutes = this.getMinutesFromMidnight(segment.end);
+    let segmentEndMinutes = this.getMinutesFromMidnight(segment.end);
+    
+    // Handle overnight hours: if end time is earlier than start time, it's the next day
+    const isOvernight = segmentEndMinutes < segmentStartMinutes;
+    const totalSegmentMinutes = isOvernight 
+      ? (24 * 60 - segmentStartMinutes) + segmentEndMinutes
+      : segmentEndMinutes - segmentStartMinutes;
+    
     const granularityMinutes = this.TIME_GRANULARITY_MINUTES;
 
     // Generate candidate start times with granularity
-    for (
-      let startMinutes = segmentStartMinutes;
-      startMinutes + durationMinutes <= segmentEndMinutes;
-      startMinutes += granularityMinutes
-    ) {
+    // For overnight segments, generate times from start to midnight, then from 00:00 to end
+    let currentStartMinutes = segmentStartMinutes;
+    const maxStartMinutes = isOvernight ? 24 * 60 : segmentEndMinutes;
+    
+    // First, generate slots that start before midnight (for overnight) or before end (for same day)
+    while (currentStartMinutes < maxStartMinutes) {
+      // Check if slot fits
+      let slotEndMinutes: number;
+      if (isOvernight && currentStartMinutes + durationMinutes > 24 * 60) {
+        // Slot crosses midnight
+        const minutesBeforeMidnight = 24 * 60 - currentStartMinutes;
+        const minutesAfterMidnight = durationMinutes - minutesBeforeMidnight;
+        if (minutesAfterMidnight > segmentEndMinutes) {
+          // Slot doesn't fit
+          break;
+        }
+        slotEndMinutes = minutesAfterMidnight;
+      } else {
+        // Slot fits entirely before midnight (overnight) or before end (same day)
+        slotEndMinutes = currentStartMinutes + durationMinutes;
+        if (!isOvernight && slotEndMinutes > segmentEndMinutes) {
+          break; // Can't fit anymore
+        }
+      }
+      
       // Calculate left and right gaps
-      const leftMinutes = startMinutes - segmentStartMinutes;
-      const rightMinutes = segmentEndMinutes - (startMinutes + durationMinutes);
+      const leftMinutes = currentStartMinutes - segmentStartMinutes;
+      let rightMinutes: number;
+      if (isOvernight) {
+        if (currentStartMinutes + durationMinutes <= 24 * 60) {
+          // Slot ends before midnight
+          rightMinutes = totalSegmentMinutes - (leftMinutes + durationMinutes);
+        } else {
+          // Slot crosses midnight
+          const minutesBeforeMidnight = 24 * 60 - currentStartMinutes;
+          const minutesAfterMidnight = durationMinutes - minutesBeforeMidnight;
+          rightMinutes = segmentEndMinutes - minutesAfterMidnight;
+        }
+      } else {
+        rightMinutes = segmentEndMinutes - (currentStartMinutes + durationMinutes);
+      }
 
       // Check if both gaps are feasible (can be formed by 2hr/3hr combinations) or are 0
+      // For overnight hours, be more lenient with right gap since overnight segments are inherently different
       const leftFeasible = leftMinutes === 0 || (leftMinutes < feasible.length && feasible[leftMinutes]);
-      const rightFeasible = rightMinutes === 0 || (rightMinutes < feasible.length && feasible[rightMinutes]);
+      let rightFeasible: boolean;
+      
+      if (isOvernight) {
+        // For overnight hours, only require left gap to be feasible
+        // Right gap can be any value (we're more lenient for overnight)
+        rightFeasible = true;
+      } else {
+        // For same-day hours, require both gaps to be feasible
+        rightFeasible = rightMinutes === 0 || 
+          (rightMinutes < feasible.length && feasible[rightMinutes]) ||
+          (rightMinutes <= 180); // Allow up to 180 minutes (max booking duration) of "wasted" time
+      }
 
       if (leftFeasible && rightFeasible) {
         // This is a valid start time
-        const timeStr = this.minutesToTimeString(startMinutes);
+        const timeStr = this.minutesToTimeString(currentStartMinutes);
         slots.push({
           time: timeStr,
           available: true,
           price,
         });
       }
+      
+      // Move to next candidate time
+      currentStartMinutes += granularityMinutes;
     }
 
     return slots;

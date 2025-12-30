@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../domain/entities/slot_entity.dart';
+import '../../domain/entities/operating_hours_entity.dart';
+import '../../domain/entities/day_slots_entity.dart';
 
 abstract class BookingsState extends Equatable {
   const BookingsState();
@@ -19,6 +21,22 @@ class SlotsLoaded extends BookingsState {
 
   @override
   List<Object> get props => [slots];
+}
+
+class OperatingHoursLoaded extends BookingsState {
+  final List<OperatingHoursEntity> operatingHours;
+  const OperatingHoursLoaded(this.operatingHours);
+
+  @override
+  List<Object> get props => [operatingHours];
+}
+
+class SlotsRangeLoaded extends BookingsState {
+  final Map<String, DaySlotsEntity> slotsByDate;
+  const SlotsRangeLoaded(this.slotsByDate);
+
+  @override
+  List<Object> get props => [slotsByDate];
 }
 
 class BookingCreated extends BookingsState {

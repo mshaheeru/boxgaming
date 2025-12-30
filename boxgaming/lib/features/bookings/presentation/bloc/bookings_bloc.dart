@@ -4,6 +4,8 @@ import '../../domain/usecases/create_booking_usecase.dart';
 import '../../domain/usecases/get_my_bookings_usecase.dart';
 import '../../domain/usecases/get_booking_details_usecase.dart';
 import '../../domain/usecases/cancel_booking_usecase.dart';
+import '../../domain/usecases/get_operating_hours_usecase.dart';
+import '../../domain/usecases/get_slots_for_date_range_usecase.dart';
 import 'bookings_event.dart';
 import 'bookings_state.dart';
 
@@ -13,6 +15,8 @@ class BookingsBloc extends Bloc<BookingsEvent, BookingsState> {
   final GetMyBookingsUseCase getMyBookingsUseCase;
   final GetBookingDetailsUseCase getBookingDetailsUseCase;
   final CancelBookingUseCase cancelBookingUseCase;
+  final GetOperatingHoursUseCase getOperatingHoursUseCase;
+  final GetSlotsForDateRangeUseCase getSlotsForDateRangeUseCase;
 
   BookingsBloc({
     required this.getAvailableSlotsUseCase,
@@ -20,12 +24,16 @@ class BookingsBloc extends Bloc<BookingsEvent, BookingsState> {
     required this.getMyBookingsUseCase,
     required this.getBookingDetailsUseCase,
     required this.cancelBookingUseCase,
+    required this.getOperatingHoursUseCase,
+    required this.getSlotsForDateRangeUseCase,
   }) : super(BookingsInitial()) {
     on<LoadAvailableSlotsEvent>(_onLoadAvailableSlots);
     on<CreateBookingEvent>(_onCreateBooking);
     on<LoadMyBookingsEvent>(_onLoadMyBookings);
     on<LoadBookingDetailsEvent>(_onLoadBookingDetails);
     on<CancelBookingEvent>(_onCancelBooking);
+    on<LoadOperatingHoursEvent>(_onLoadOperatingHours);
+    on<LoadSlotsForDateRangeEvent>(_onLoadSlotsForDateRange);
   }
 
   Future<void> _onLoadAvailableSlots(
@@ -94,6 +102,35 @@ class BookingsBloc extends Bloc<BookingsEvent, BookingsState> {
     result.fold(
       (failure) => emit(BookingsError(failure.message)),
       (_) => emit(BookingCancelled()),
+    );
+  }
+
+  Future<void> _onLoadOperatingHours(
+    LoadOperatingHoursEvent event,
+    Emitter<BookingsState> emit,
+  ) async {
+    emit(BookingsLoading());
+    final result = await getOperatingHoursUseCase(event.venueId, event.groundId);
+    result.fold(
+      (failure) => emit(BookingsError(failure.message)),
+      (operatingHours) => emit(OperatingHoursLoaded(operatingHours)),
+    );
+  }
+
+  Future<void> _onLoadSlotsForDateRange(
+    LoadSlotsForDateRangeEvent event,
+    Emitter<BookingsState> emit,
+  ) async {
+    emit(BookingsLoading());
+    final result = await getSlotsForDateRangeUseCase(
+      event.groundId,
+      event.startDate,
+      event.endDate,
+      event.duration,
+    );
+    result.fold(
+      (failure) => emit(BookingsError(failure.message)),
+      (slotsByDate) => emit(SlotsRangeLoaded(slotsByDate)),
     );
   }
 }

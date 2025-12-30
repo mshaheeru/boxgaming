@@ -233,9 +233,10 @@ export class GroundsService {
     await supabase.from('operating_hours').delete().eq('ground_id', groundId);
 
     // Insert new operating hours
+    // Set both ground_id and venue_id for data integrity and easier querying
     const operatingHoursData = dto.operating_hours.map((oh) => ({
       ground_id: groundId,
-      venue_id: null, // Set venue_id to null since this is ground-specific
+      venue_id: ground.venueId, // Set venue_id from the ground for data integrity
       day_of_week: oh.day_of_week,
       open_time: oh.open_time,
       close_time: oh.close_time,

@@ -3,6 +3,8 @@ import '../../../../core/error/failures.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../domain/entities/booking_entity.dart';
 import '../../domain/entities/slot_entity.dart';
+import '../../domain/entities/operating_hours_entity.dart';
+import '../../domain/entities/day_slots_entity.dart';
 import '../../domain/repositories/bookings_repository.dart';
 import '../datasources/bookings_remote_datasource.dart';
 
@@ -20,6 +22,43 @@ class BookingsRepositoryImpl implements BookingsRepository {
     try {
       final slots = await remoteDataSource.getAvailableSlots(groundId, date, duration);
       return Right(slots.map((s) => s.toEntity()).toList());
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<OperatingHoursEntity>>> getOperatingHours(
+    String venueId,
+    String groundId,
+  ) async {
+    try {
+      final operatingHours = await remoteDataSource.getOperatingHours(venueId, groundId);
+      return Right(operatingHours.map((oh) => oh.toEntity()).toList());
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, DaySlotsEntity>>> getSlotsForDateRange(
+    String groundId,
+    DateTime startDate,
+    DateTime endDate,
+    int duration,
+  ) async {
+    try {
+      final slotsByDate = await remoteDataSource.getSlotsForDateRange(
+        groundId,
+        startDate,
+        endDate,
+        duration,
+      );
+      return Right(slotsByDate.map((key, value) => MapEntry(key, value.toEntity())));
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     } catch (e) {

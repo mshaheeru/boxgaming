@@ -117,30 +117,22 @@ class _VenueDetailView extends StatelessWidget {
                     fit: BoxFit.cover,
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
-                      return Container(
-                        color: Colors.grey[300],
-                        child: const Center(child: CircularProgressIndicator()),
+                      return Image.asset(
+                        'image/venue.png',
+                        fit: BoxFit.cover,
                       );
                     },
                     errorBuilder: (context, error, stackTrace) {
-                      // Suppress error logging for 404s
-                      return Container(
-                        color: Colors.grey[300],
-                        child: const Icon(
-                          Icons.sports_esports,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
+                      // If network image fails, show default image
+                      return Image.asset(
+                        'image/venue.png',
+                        fit: BoxFit.cover,
                       );
                     },
                   )
-                : Container(
-                    color: Colors.grey[300],
-                    child: const Icon(
-                      Icons.sports_esports,
-                      size: 64,
-                      color: Colors.grey,
-                    ),
+                : Image.asset(
+                    'image/venue.png',
+                    fit: BoxFit.cover,
                   ),
           ),
         ),

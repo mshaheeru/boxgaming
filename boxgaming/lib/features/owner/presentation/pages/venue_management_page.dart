@@ -251,47 +251,43 @@ class _VenueCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Venue photo
-          if (venue.photos.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-              child: Image.network(
-                venue.photos.first,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 200,
-                    color: Colors.grey[300],
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    height: 200,
-                    color: Colors.grey[300],
-                    child: const Center(
-                      child: Icon(Icons.image_not_supported, size: 48),
-                    ),
-                  );
-                },
-              ),
-            )
-          else
-            Container(
-              height: 200,
-              width: double.infinity,
-              color: Colors.grey[300],
-              child: const Center(
-                child: Icon(Icons.image, size: 48, color: Colors.grey),
-              ),
+          ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(12),
+              topRight: Radius.circular(12),
             ),
+            child: venue.photos.isNotEmpty
+                ? Image.network(
+                    venue.photos.first,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Image.asset(
+                        'image/venue.png',
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      // If network image fails, show default image
+                      return Image.asset(
+                        'image/venue.png',
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  )
+                : Image.asset(
+                    'image/venue.png',
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+          ),
           // Venue details
           Padding(
             padding: const EdgeInsets.all(16.0),
