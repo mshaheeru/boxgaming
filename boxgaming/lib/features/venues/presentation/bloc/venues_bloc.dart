@@ -38,14 +38,26 @@ class VenuesBloc extends Bloc<VenuesEvent, VenuesState> {
       (venues) {
         if (state is VenuesLoaded && !event.refresh) {
           final currentState = state as VenuesLoaded;
+          // Deduplicate venues by ID when appending for pagination
+          final existingIds = currentState.venues.map((v) => v.id).toSet();
+          final newVenues = venues.where((v) => !existingIds.contains(v.id)).toList();
           emit(VenuesLoaded(
-            venues: [...currentState.venues, ...venues],
+            venues: [...currentState.venues, ...newVenues],
             hasMore: venues.length >= 20,
             currentPage: event.page,
           ));
         } else {
+          // Deduplicate venues by ID (in case backend returns duplicates)
+          final seenIds = <String>{};
+          final uniqueVenues = venues.where((venue) {
+            if (seenIds.contains(venue.id)) {
+              return false;
+            }
+            seenIds.add(venue.id);
+            return true;
+          }).toList();
           emit(VenuesLoaded(
-            venues: venues,
+            venues: uniqueVenues,
             hasMore: venues.length >= 20,
             currentPage: event.page,
           ));

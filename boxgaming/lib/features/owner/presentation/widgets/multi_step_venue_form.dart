@@ -2,15 +2,23 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:get_it/get_it.dart';
 import '../bloc/venue_management_bloc.dart';
 import '../bloc/venue_management_event.dart';
 import '../bloc/venue_management_state.dart';
 import '../../../venues/dto/create_venue_dto.dart';
-import 'operating_hours_form.dart';
+import '../../../venues/dto/update_venue_dto.dart';
+import '../../../venues/domain/entities/venue_entity.dart';
 import 'grounds_form.dart';
+import '../../data/datasources/venue_management_remote_datasource.dart';
 
 class MultiStepVenueForm extends StatefulWidget {
-  const MultiStepVenueForm({super.key});
+  final VenueEntity? venue; // If provided, we're in edit mode
+
+  const MultiStepVenueForm({
+    super.key,
+    this.venue,
+  });
 
   @override
   State<MultiStepVenueForm> createState() => _MultiStepVenueFormState();
@@ -28,13 +36,84 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
   final _cityController = TextEditingController();
   File? _selectedPhoto;
 
-  // Step 2: Operating Hours
-  List<Map<String, dynamic>> _operatingHours = [];
-
-  // Step 3: Grounds
+  // Step 2: Grounds (operating hours are now per-ground)
   List<Map<String, dynamic>> _grounds = [];
 
   String? _createdVenueId;
+  bool get _isEditMode => widget.venue != null;
+  final VenueManagementRemoteDataSource _remoteDataSource = 
+      GetIt.instance<VenueManagementRemoteDataSource>();
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditMode) {
+      // Pre-populate fields in edit mode
+      final venue = widget.venue!;
+      _createdVenueId = venue.id;
+      _nameController.text = venue.name;
+      _descriptionController.text = venue.description ?? '';
+      _addressController.text = venue.address ?? '';
+      _cityController.text = venue.city ?? '';
+      // Load existing operating hours and grounds
+      _loadExistingData();
+    }
+  }
+
+  Future<void> _loadExistingData() async {
+    if (!_isEditMode) return;
+    
+    try {
+      // Load grounds
+      final groundsData = await _remoteDataSource.getVenueGrounds(widget.venue!.id);
+      
+      // Load operating hours for each ground
+      final List<Map<String, dynamic>> groundsWithHours = [];
+      for (var g in groundsData) {
+        final groundId = g['id'] as String?;
+        if (groundId != null) {
+          try {
+            // Fetch operating hours for this ground
+            final operatingHours = await _remoteDataSource.getGroundOperatingHours(
+              widget.venue!.id,
+              groundId,
+            );
+            
+            groundsWithHours.add({
+              'id': groundId, // Ensure ID is always set
+              'name': g['name'] as String? ?? '',
+              'sportType': g['sport_type'] ?? g['sportType'] ?? 'badminton',
+              'size': g['size'] ?? 'medium',
+              'price2hr': (g['price_2hr'] ?? g['price2hr'] as num?)?.toDouble() ?? 0.0,
+              'price3hr': (g['price_3hr'] ?? g['price3hr'] as num?)?.toDouble() ?? 0.0,
+              'isActive': g['is_active'] ?? g['isActive'] ?? true,
+              'operatingHours': operatingHours, // Include operating hours
+            });
+          } catch (e) {
+            // If operating hours fetch fails, still add the ground without hours
+            print('Error loading operating hours for ground $groundId: $e');
+            groundsWithHours.add({
+              'id': groundId,
+              'name': g['name'] as String? ?? '',
+              'sportType': g['sport_type'] ?? g['sportType'] ?? 'badminton',
+              'size': g['size'] ?? 'medium',
+              'price2hr': (g['price_2hr'] ?? g['price2hr'] as num?)?.toDouble() ?? 0.0,
+              'price3hr': (g['price_3hr'] ?? g['price3hr'] as num?)?.toDouble() ?? 0.0,
+              'isActive': g['is_active'] ?? g['isActive'] ?? true,
+              'operatingHours': <Map<String, dynamic>>[], // Empty if fetch fails
+            });
+          }
+        }
+      }
+      
+      setState(() {
+        _grounds = groundsWithHours;
+      });
+    } catch (e) {
+      // Handle error silently or show snackbar
+      print('Error loading existing data: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -62,54 +141,53 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
       return;
     }
 
-    // Create venue
-    final dto = CreateVenueDto(
-      name: _nameController.text.trim(),
-      description: _descriptionController.text.trim().isEmpty
-          ? null
-          : _descriptionController.text.trim(),
-      address: _addressController.text.trim().isEmpty
-          ? null
-          : _addressController.text.trim(),
-      city: _cityController.text.trim().isEmpty
-          ? null
-          : _cityController.text.trim(),
-    );
+    if (_isEditMode) {
+      // Update venue
+      final dto = UpdateVenueDto(
+        name: _nameController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        address: _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+        city: _cityController.text.trim().isEmpty
+            ? null
+            : _cityController.text.trim(),
+      );
 
-    context.read<VenueManagementBloc>().add(CreateVenueEvent(dto));
+      context.read<VenueManagementBloc>().add(UpdateVenueEvent(widget.venue!.id, dto));
+
+      // Upload photo if selected (non-blocking)
+      if (_selectedPhoto != null) {
+        Future.microtask(() {
+          context.read<VenueManagementBloc>().add(
+                UploadVenuePhotoEvent(widget.venue!.id, _selectedPhoto!.path),
+              );
+        });
+      }
+
+      // Don't navigate here - let the VenueUpdated listener handle it
+      // This prevents double navigation
+    } else {
+      // Create venue
+      final dto = CreateVenueDto(
+        name: _nameController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        address: _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+        city: _cityController.text.trim().isEmpty
+            ? null
+            : _cityController.text.trim(),
+      );
+
+      context.read<VenueManagementBloc>().add(CreateVenueEvent(dto));
+    }
   }
 
-  Future<void> _handleStep2Next() async {
-    if (_operatingHours.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please set operating hours for at least one day')),
-      );
-      return;
-    }
-
-    if (_createdVenueId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Venue not created yet. Please wait...')),
-      );
-      return;
-    }
-
-    // Create operating hours
-    context.read<VenueManagementBloc>().add(
-          CreateOperatingHoursEvent(_createdVenueId!, _operatingHours),
-        );
-
-    // Wait a bit for the operation to complete, then move to next step
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() {
-      _currentStep = 2;
-    });
-    _pageController.nextPage(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
 
   void _handleStep3Complete() {
     if (_grounds.isEmpty) {
@@ -142,7 +220,7 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
             });
           }
 
-          // Move to step 2
+          // Move to step 2 (Grounds - operating hours are now per-ground)
           setState(() {
             _currentStep = 1;
           });
@@ -160,8 +238,25 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
         } else if (state is VenueActivated) {
           Navigator.of(context).pop(true);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Venue created and activated successfully!')),
+            SnackBar(
+              content: Text(_isEditMode 
+                ? 'Venue updated and activated successfully!'
+                : 'Venue created and activated successfully!'),
+            ),
           );
+        } else if (state is VenueUpdated && _isEditMode) {
+          // In edit mode, after updating venue, move to step 2 (Grounds)
+          // Only navigate if we're still on step 1 (Basic Info)
+          // Don't show snackbar here - wait until form is complete
+          if (_currentStep == 0) {
+            setState(() {
+              _currentStep = 1;
+            });
+            _pageController.nextPage(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          }
         }
       },
       builder: (context, state) {
@@ -172,14 +267,18 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
+                // Title
+                Text(
+                  _isEditMode ? 'Edit Venue' : 'Create New Venue',
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
                 // Progress indicator
                 Row(
                   children: [
                     _buildStepIndicator(0, 'Basic Info', _currentStep >= 0),
                     _buildStepConnector(),
-                    _buildStepIndicator(1, 'Hours', _currentStep >= 1),
-                    _buildStepConnector(),
-                    _buildStepIndicator(2, 'Grounds', _currentStep >= 2),
+                    _buildStepIndicator(1, 'Grounds', _currentStep >= 1),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -191,44 +290,35 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
                     children: [
                       // Step 1: Basic Info
                       _buildStep1(state is VenueManagementLoading),
-                      // Step 2: Operating Hours
-                      OperatingHoursForm(
-                        operatingHours: _operatingHours,
-                        onChanged: (hours) {
-                          setState(() {
-                            _operatingHours = hours;
-                          });
-                        },
-                        onNext: _handleStep2Next,
-                        onBack: () {
-                          setState(() {
-                            _currentStep = 0;
-                          });
-                          _pageController.previousPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                      ),
-                      // Step 3: Grounds
-                      _createdVenueId != null
+                      // Step 2: Grounds (operating hours are now per-ground)
+                      (_createdVenueId != null || _isEditMode)
                           ? GroundsForm(
                               grounds: _grounds,
-                              venueId: _createdVenueId!,
+                              venueId: _createdVenueId ?? widget.venue!.id,
+                              isEditMode: _isEditMode,
                               onChanged: (grounds) {
                                 setState(() {
                                   _grounds = grounds;
                                 });
                               },
                               onComplete: () {
-                                // Complete setup: activate venue
-                                context.read<VenueManagementBloc>().add(
-                                      CompleteVenueSetupEvent(_createdVenueId!),
-                                    );
+                                if (_isEditMode) {
+                                  // In edit mode, activate venue and close
+                                  context.read<VenueManagementBloc>().add(
+                                        CompleteVenueSetupEvent(_createdVenueId ?? widget.venue!.id),
+                                      );
+                                } else {
+                                  // In create mode, activate venue
+                                  if (_createdVenueId != null) {
+                                    context.read<VenueManagementBloc>().add(
+                                          CompleteVenueSetupEvent(_createdVenueId!),
+                                        );
+                                  }
+                                }
                               },
                               onBack: () {
                                 setState(() {
-                                  _currentStep = 1;
+                                  _currentStep = 0;
                                 });
                                 _pageController.previousPage(
                                   duration: const Duration(milliseconds: 300),
@@ -236,7 +326,9 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
                                 );
                               },
                             )
-                          : const Center(child: CircularProgressIndicator()),
+                          : const Center(
+                              child: CircularProgressIndicator(),
+                            ),
                     ],
                   ),
                 ),
@@ -248,59 +340,21 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
     );
   }
 
-  Widget _buildStepIndicator(int step, String label, bool isActive) {
-    return Expanded(
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isActive ? Colors.blue : Colors.grey,
-            ),
-            child: Center(
-              child: Text(
-                '${step + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isActive ? Colors.blue : Colors.grey,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepConnector() {
-    return Container(
-      width: 30,
-      height: 2,
-      color: Colors.grey,
-      margin: const EdgeInsets.only(bottom: 20),
-    );
-  }
-
   Widget _buildStep1(bool isLoading) {
-    return Form(
-      key: _formKey,
-      child: SingleChildScrollView(
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
               'Basic Information',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Enter the basic details for your venue',
+              style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 24),
             TextFormField(
@@ -311,7 +365,7 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Please enter venue name';
+                  return 'Please enter a venue name';
                 }
                 return null;
               },
@@ -341,48 +395,97 @@ class _MultiStepVenueFormState extends State<MultiStepVenueForm> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             // Photo upload
             const Text(
               'Venue Photo (Optional)',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                height: 150,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: _selectedPhoto != null
-                    ? Image.file(
-                        _selectedPhoto!,
-                        fit: BoxFit.cover,
-                      )
-                    : const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_photo_alternate, size: 48),
-                            SizedBox(height: 8),
-                            Text('Tap to add photo'),
-                          ],
-                        ),
+            Row(
+              children: [
+                if (_selectedPhoto != null)
+                  Expanded(
+                    child: Image.file(
+                      _selectedPhoto!,
+                      height: 100,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: Container(
+                      height: 100,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-              ),
+                      child: const Center(
+                        child: Icon(Icons.image, size: 48, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _pickImage,
+                  icon: const Icon(Icons.photo_library),
+                  label: const Text('Pick Image'),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: isLoading ? null : _handleStep1Next,
               child: isLoading
                   ? const CircularProgressIndicator()
-                  : const Text('Next: Operating Hours'),
+                  : Text(_isEditMode ? 'Next: Manage Grounds' : 'Next: Add Grounds'),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStepIndicator(int step, String label, bool isActive) {
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive ? Colors.blue : Colors.grey[300],
+            ),
+            child: Center(
+              child: Text(
+                '${step + 1}',
+                style: TextStyle(
+                  color: isActive ? Colors.white : Colors.grey[600],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isActive ? Colors.blue : Colors.grey[600],
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepConnector() {
+    return Container(
+      width: 40,
+      height: 2,
+      color: Colors.grey[300],
     );
   }
 }

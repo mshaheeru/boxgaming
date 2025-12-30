@@ -128,11 +128,38 @@ export class VenuesService {
       });
     }
 
+    // Deduplicate venues: Supabase join with grounds can create duplicate venue rows
+    // Group by venue ID and merge grounds arrays
+    const venueMap = new Map<string, any>();
+    for (const venue of filteredVenues) {
+      const venueId = venue.id;
+      if (venueMap.has(venueId)) {
+        // Merge grounds if venue already exists
+        const existingVenue = venueMap.get(venueId);
+        const existingGrounds = existingVenue.grounds || [];
+        const newGrounds = venue.grounds || [];
+        // Combine and deduplicate grounds by ID
+        const groundsMap = new Map();
+        [...existingGrounds, ...newGrounds].forEach((ground: any) => {
+          if (ground && ground.id) {
+            groundsMap.set(ground.id, ground);
+          }
+        });
+        existingVenue.grounds = Array.from(groundsMap.values());
+      } else {
+        // First occurrence of this venue
+        venueMap.set(venueId, { ...venue });
+      }
+    }
+
+    // Convert map back to array
+    const deduplicatedVenues = Array.from(venueMap.values());
+
     // TODO: Calculate distance if lat/lng provided
     // For now, just return venues
 
     return {
-      data: filteredVenues,
+      data: deduplicatedVenues,
       meta: {
         total: countResult.count || 0,
         page,
@@ -415,28 +442,9 @@ export class VenuesService {
     const fileName = `${id}/${Date.now()}.${fileExt}`;
     const bucketName = 'venue-photos';
 
-    // Check if bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some((b) => b.name === bucketName);
-    
-    if (!bucketExists) {
-      // Try to create bucket if it doesn't exist
-      // Note: This requires admin permissions. If it fails, the bucket needs to be created manually in Supabase dashboard
-      const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
-        public: true,
-        fileSizeLimit: 5242880, // 5MB
-        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
-      });
-      
-      if (createBucketError) {
-        // If bucket creation fails, provide helpful error message
-        throw new Error(
-          `Storage bucket '${bucketName}' not found. Please create it in Supabase Dashboard: Storage > Create Bucket > Name: ${bucketName}, Public: true. Error: ${createBucketError.message}`
-        );
-      }
-    }
-
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage directly
+    // The service role should bypass RLS, so we don't need to check bucket existence
+    // If the bucket doesn't exist, the upload will fail with a clear error
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from(bucketName)
       .upload(fileName, file.buffer, {

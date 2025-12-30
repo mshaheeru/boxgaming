@@ -4,5 +4,6 @@ export enum SportType {
   CRICKET = 'cricket',
   PADEL = 'padel',
   TABLE_TENNIS = 'table_tennis',
+  ALL = 'all',
 }
 

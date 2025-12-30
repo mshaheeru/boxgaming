@@ -22,6 +22,12 @@ abstract class VenueManagementRemoteDataSource {
   Future<Map<String, dynamic>> createGround(String venueId, Map<String, dynamic> groundData);
   Future<Map<String, dynamic>> updateGround(String venueId, String groundId, Map<String, dynamic> groundData);
   Future<void> deleteGround(String venueId, String groundId);
+  Future<List<Map<String, dynamic>>> createGroundOperatingHours(
+    String venueId,
+    String groundId,
+    List<Map<String, dynamic>> operatingHours,
+  );
+  Future<List<Map<String, dynamic>>> getGroundOperatingHours(String venueId, String groundId);
 }
 
 class VenueManagementRemoteDataSourceImpl
@@ -190,6 +196,49 @@ class VenueManagementRemoteDataSourceImpl
     } on DioException catch (e) {
       throw ServerException(
         e.response?.data['message'] ?? 'Failed to update ground',
+      );
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> createGroundOperatingHours(
+    String venueId,
+    String groundId,
+    List<Map<String, dynamic>> operatingHours,
+  ) async {
+    try {
+      final response = await apiClient.dio.post(
+        ApiConstants.createGroundOperatingHours(venueId, groundId),
+        data: {
+          'operating_hours': operatingHours,
+        },
+      );
+      final data = response.data as List<dynamic>;
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data['message'] ?? 'Failed to create operating hours',
+      );
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getGroundOperatingHours(String venueId, String groundId) async {
+    try {
+      final response = await apiClient.dio.get(
+        ApiConstants.getGroundOperatingHours(venueId, groundId),
+      );
+      final data = response.data as List<dynamic>? ?? [];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data['message'] ?? 'Failed to fetch operating hours',
       );
     }
   }

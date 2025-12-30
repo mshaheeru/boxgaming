@@ -17,6 +17,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CreateGroundDto } from './dto/create-ground.dto';
 import { UpdateGroundDto } from './dto/update-ground.dto';
+import { CreateOperatingHoursDto } from '../venues/dto/create-operating-hours.dto';
 
 @ApiTags('grounds')
 @Controller('venues/:venueId/grounds')
@@ -84,5 +85,28 @@ export class GroundsController {
       throw new Error('Owner must have a tenant');
     }
     return this.groundsService.remove(id, req.user.id, tenantId);
+  }
+
+  @Post(':id/operating-hours')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('owner', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create/Update operating hours for a ground (owner only)' })
+  async createOperatingHours(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() dto: CreateOperatingHoursDto,
+  ) {
+    const tenantId = req.user.tenant_id;
+    if (!tenantId && req.user.role === 'owner') {
+      throw new Error('Owner must have a tenant');
+    }
+    return this.groundsService.createOperatingHours(id, req.user.id, tenantId, dto);
+  }
+
+  @Get(':id/operating-hours')
+  @ApiOperation({ summary: 'Get operating hours for a ground' })
+  async getOperatingHours(@Param('id') id: string) {
+    return this.groundsService.getOperatingHours(id);
   }
 }

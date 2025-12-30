@@ -61,6 +61,8 @@ class GroundModel {
         return SportType.padel;
       case 'table_tennis':
         return SportType.tableTennis;
+      case 'all':
+        return SportType.all;
       default:
         return SportType.badminton;
     }

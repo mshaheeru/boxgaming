@@ -6,6 +6,8 @@ class OperatingHoursForm extends StatefulWidget {
   final Function(List<Map<String, dynamic>>) onChanged;
   final VoidCallback onNext;
   final VoidCallback onBack;
+  final String? venueId;
+  final bool isEditMode;
 
   const OperatingHoursForm({
     super.key,
@@ -13,6 +15,8 @@ class OperatingHoursForm extends StatefulWidget {
     required this.onChanged,
     required this.onNext,
     required this.onBack,
+    this.venueId,
+    this.isEditMode = false,
   });
 
   @override
@@ -215,7 +219,7 @@ class _OperatingHoursFormState extends State<OperatingHoursForm> {
               Expanded(
                 child: ElevatedButton(
                   onPressed: widget.onNext,
-                  child: const Text('Next: Add Grounds'),
+                  child: Text(widget.isEditMode ? 'Next: Manage Grounds' : 'Next: Add Grounds'),
                 ),
               ),
             ],

@@ -37,13 +37,6 @@ class VenueManagementPage extends StatelessWidget {
                   backgroundColor: Colors.green,
                 ),
               );
-            } else if (state is VenueUpdated) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Venue updated successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
             } else if (state is VenueManagementError) {
               // Only show error snackbar if it's not a photo upload error (those are handled above)
               if (!state.message.contains('photo') && !state.message.contains('bucket')) {
@@ -402,9 +395,9 @@ class _VenueCard extends StatelessWidget {
 
     showDialog(
       context: context,
-      builder: (dialogContext) => _EditVenueDialog(
-        venue: venue,
-        bloc: bloc,
+      builder: (dialogContext) => BlocProvider.value(
+        value: bloc,
+        child: MultiStepVenueForm(venue: venue),
       ),
     );
   }
@@ -524,6 +517,8 @@ class _EditVenueDialogState extends State<_EditVenueDialog> {
         return 'padel';
       case SportType.tableTennis:
         return 'table_tennis';
+      case SportType.all:
+        return 'all';
     }
   }
 
@@ -922,6 +917,8 @@ class _EditGroundCardState extends State<_EditGroundCard> {
         return 'padel';
       case SportType.tableTennis:
         return 'table_tennis';
+      case SportType.all:
+        return 'all';
     }
   }
 

@@ -31,10 +31,23 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
   int _selectedDuration = 2;
   String? _selectedTime;
   List<SlotEntity> _availableSlots = [];
+  List<String> _selectedSports = [];
+  
+  bool get _isAllSportsGround {
+    // Check if ground supports all sports
+    final sportTypeName = widget.ground.sportType.name;
+    return sportTypeName == 'all';
+  }
 
   @override
   void initState() {
     super.initState();
+    // If ground supports all sports, initialize with all selected
+    if (_isAllSportsGround) {
+      _selectedSports = ['badminton', 'futsal', 'cricket', 'padel', 'table_tennis'];
+    } else {
+      _selectedSports = [widget.ground.sportType.name];
+    }
     _loadSlots();
   }
 
@@ -112,6 +125,26 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
                   widget.ground.name,
                   style: TextStyle(color: Colors.grey[600]),
                 ),
+                // Show sport selection if ground supports all sports
+                if (_isAllSportsGround) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Select Sports',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _SportSelectionChips(
+                    selectedSports: _selectedSports,
+                    onChanged: (selected) {
+                      setState(() {
+                        _selectedSports = selected;
+                      });
+                    },
+                  ),
+                ],
                 const SizedBox(height: 24),
                 const Text(
                   'Select Date',
@@ -254,6 +287,69 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
           );
         },
       ),
+    );
+  }
+}
+
+class _SportSelectionChips extends StatefulWidget {
+  final List<String> selectedSports;
+  final Function(List<String>) onChanged;
+
+  const _SportSelectionChips({
+    required this.selectedSports,
+    required this.onChanged,
+  });
+
+  @override
+  State<_SportSelectionChips> createState() => _SportSelectionChipsState();
+}
+
+class _SportSelectionChipsState extends State<_SportSelectionChips> {
+  late List<String> _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List.from(widget.selectedSports);
+  }
+
+  @override
+  void didUpdateWidget(_SportSelectionChips oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedSports != widget.selectedSports) {
+      _selected = List.from(widget.selectedSports);
+    }
+  }
+
+  void _toggleSport(String sport) {
+    setState(() {
+      if (_selected.contains(sport)) {
+        _selected.remove(sport);
+      } else {
+        _selected.add(sport);
+      }
+      widget.onChanged(_selected);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allSports = ['badminton', 'futsal', 'cricket', 'padel', 'table_tennis'];
+    
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: allSports.map((sport) {
+        final isSelected = _selected.contains(sport);
+        final displayName = sport.toUpperCase().replaceAll('_', ' ');
+        
+        return FilterChip(
+          label: Text(displayName),
+          selected: isSelected,
+          onSelected: (_) => _toggleSport(sport),
+          selectedColor: Colors.blue.withOpacity(0.2),
+        );
+      }).toList(),
     );
   }
 }

@@ -197,25 +197,18 @@ class _VenueDetailView extends StatelessWidget {
                 if (venue.grounds.isEmpty)
                   const Text('No grounds available')
                 else
-                  ...venue.grounds.map((ground) => _GroundCard(ground: ground)),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (venue.grounds.isNotEmpty) {
-                        context.push(
-                          RouteConstants.booking,
-                          extra: {
-                            'ground': venue.grounds.first,
-                            'venueName': venue.name,
-                          },
-                        );
-                      }
+                  ...venue.grounds.map((ground) => _GroundCard(
+                    ground: ground,
+                    onTap: () {
+                      context.push(
+                        RouteConstants.booking,
+                        extra: {
+                          'ground': ground,
+                          'venueName': venue.name,
+                        },
+                      );
                     },
-                    child: const Text('Book Now'),
-                  ),
-                ),
+                  )),
               ],
             ),
           ),
@@ -227,50 +220,84 @@ class _VenueDetailView extends StatelessWidget {
 
 class _GroundCard extends StatelessWidget {
   final GroundEntity ground;
+  final VoidCallback? onTap;
 
-  const _GroundCard({required this.ground});
+  const _GroundCard({
+    required this.ground,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final allSports = ['badminton', 'futsal', 'cricket', 'padel', 'table_tennis'];
+    final isAllSports = ground.sportType.name == 'all';
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  ground.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      ground.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-                Chip(
-                  label: Text(ground.sportType.name),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Text('2 hours: '),
-                Text(
-                  'Rs. ${ground.price2hr.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(width: 16),
-                const Text('3 hours: '),
-                Text(
-                  'Rs. ${ground.price3hr.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Show sport types
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: isAllSports
+                    ? allSports.map((sport) {
+                        return Chip(
+                          label: Text(
+                            sport.toUpperCase().replaceAll('_', ' '),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                        );
+                      }).toList()
+                    : [
+                        Chip(
+                          label: Text(
+                            ground.sportType.name.toUpperCase().replaceAll('_', ' '),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          backgroundColor: Colors.blue.withOpacity(0.1),
+                        ),
+                      ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Text('2 hours: '),
+                  Text(
+                    'Rs. ${ground.price2hr.toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(width: 16),
+                  const Text('3 hours: '),
+                  Text(
+                    'Rs. ${ground.price3hr.toStringAsFixed(0)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

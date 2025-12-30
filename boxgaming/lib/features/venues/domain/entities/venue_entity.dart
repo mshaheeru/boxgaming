@@ -7,6 +7,7 @@ enum SportType {
   cricket,
   padel,
   tableTennis,
+  all,
 }
 
 enum VenueStatus {

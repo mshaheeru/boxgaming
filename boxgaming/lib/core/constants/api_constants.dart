@@ -24,6 +24,8 @@ class ApiConstants {
   static String venueGrounds(String venueId) => '/venues/$venueId/grounds';
   static String updateGround(String venueId, String groundId) => '/venues/$venueId/grounds/$groundId';
   static String deleteGround(String venueId, String groundId) => '/venues/$venueId/grounds/$groundId';
+  static String createGroundOperatingHours(String venueId, String groundId) => '/venues/$venueId/grounds/$groundId/operating-hours';
+  static String getGroundOperatingHours(String venueId, String groundId) => '/venues/$venueId/grounds/$groundId/operating-hours';
   static const String myVenues = '/venues/my-venues';
   static String activateVenue(String id) => '/venues/$id/activate';
   static String deactivateVenue(String id) => '/venues/$id/deactivate';

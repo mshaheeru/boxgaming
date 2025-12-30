@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { CreateGroundDto } from './dto/create-ground.dto';
 import { UpdateGroundDto } from './dto/update-ground.dto';
 import { VenuesService } from '../venues/venues.service';
+import { CreateOperatingHoursDto } from '../venues/dto/create-operating-hours.dto';
 
 @Injectable()
 export class GroundsService {
@@ -201,6 +202,73 @@ export class GroundsService {
       price3hr: updatedGround.price_3hr,
       isActive: updatedGround.is_active,
     };
+  }
+
+  /**
+   * Create operating hours for a ground
+   */
+  async createOperatingHours(
+    groundId: string,
+    ownerId: string,
+    tenantId: string,
+    dto: CreateOperatingHoursDto,
+  ) {
+    const ground = await this.findOne(groundId);
+    const supabase = this.supabaseService.getAdminClient();
+
+    // Verify venue belongs to owner's tenant
+    const { data: venue } = await supabase
+      .from('venues')
+      .select('owner_id, tenant_id')
+      .eq('id', ground.venueId)
+      .single();
+
+    if (ground.venue.owner_id !== ownerId || venue?.tenant_id !== tenantId) {
+      throw new ForbiddenException(
+        'You do not have permission to create operating hours for this ground',
+      );
+    }
+
+    // Delete existing operating hours for this ground
+    await supabase.from('operating_hours').delete().eq('ground_id', groundId);
+
+    // Insert new operating hours
+    const operatingHoursData = dto.operating_hours.map((oh) => ({
+      ground_id: groundId,
+      venue_id: null, // Set venue_id to null since this is ground-specific
+      day_of_week: oh.day_of_week,
+      open_time: oh.open_time,
+      close_time: oh.close_time,
+    }));
+
+    const { data: createdHours, error: createError } = await supabase
+      .from('operating_hours')
+      .insert(operatingHoursData)
+      .select();
+
+    if (createError || !createdHours) {
+      throw new Error(`Failed to create operating hours: ${createError?.message}`);
+    }
+
+    return createdHours;
+  }
+
+  /**
+   * Get operating hours for a ground
+   */
+  async getOperatingHours(groundId: string) {
+    const supabase = this.supabaseService.getAdminClient();
+
+    const { data: operatingHours, error } = await supabase
+      .from('operating_hours')
+      .select('*')
+      .eq('ground_id', groundId);
+
+    if (error) {
+      throw new Error(`Failed to fetch operating hours: ${error.message}`);
+    }
+
+    return operatingHours || [];
   }
 }
 
