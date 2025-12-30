@@ -29,6 +29,7 @@ abstract class BookingsRepository {
     required DateTime bookingDate,
     required String startTime,
     required int durationHours,
+    required String paymentMethod,
   });
   
   Future<Either<Failure, List<BookingEntity>>> getMyBookings({

@@ -72,6 +72,7 @@ class BookingsRepositoryImpl implements BookingsRepository {
     required DateTime bookingDate,
     required String startTime,
     required int durationHours,
+    required String paymentMethod,
   }) async {
     try {
       final booking = await remoteDataSource.createBooking(
@@ -79,6 +80,7 @@ class BookingsRepositoryImpl implements BookingsRepository {
         bookingDate: bookingDate,
         startTime: startTime,
         durationHours: durationHours,
+        paymentMethod: paymentMethod,
       );
       return Right(booking.toEntity());
     } on ServerException catch (e) {

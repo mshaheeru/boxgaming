@@ -13,12 +13,14 @@ class CreateBookingUseCase {
     required DateTime bookingDate,
     required String startTime,
     required int durationHours,
+    required String paymentMethod,
   }) async {
     return await repository.createBooking(
       groundId: groundId,
       bookingDate: bookingDate,
       startTime: startTime,
       durationHours: durationHours,
+      paymentMethod: paymentMethod,
     );
   }
 }

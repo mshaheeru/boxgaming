@@ -12,6 +12,7 @@ import '../../domain/entities/slot_entity.dart';
 import '../../domain/entities/operating_hours_entity.dart';
 import '../../domain/entities/day_slots_entity.dart';
 import '../../../venues/domain/entities/ground_entity.dart';
+import '../../../payments/domain/entities/payment_entity.dart';
 
 class BookingScreenPage extends StatefulWidget {
   final GroundEntity ground;
@@ -32,6 +33,7 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
   int _selectedDuration = 2;
   String? _selectedDay; // Format: "2024-12-30" or dayOfWeek name
   String? _selectedTime;
+  PaymentGateway? _selectedPaymentMethod;
   List<OperatingHoursEntity> _operatingHours = [];
   Map<String, DaySlotsEntity> _slotsByDate = {};
   List<String> _selectedSports = [];
@@ -49,36 +51,53 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
     } else {
       _selectedSports = [widget.ground.sportType.name];
     }
-    // Load operating hours on init
-    _loadOperatingHours();
+    // Load operating hours after the first frame to ensure context is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadOperatingHours();
+      }
+    });
   }
 
   void _loadOperatingHours() {
-    context.read<BookingsBloc>().add(
-          LoadOperatingHoursEvent(
-            venueId: widget.ground.venueId,
-            groundId: widget.ground.id,
-          ),
-        );
+    if (!mounted) return;
+    final bloc = context.read<BookingsBloc>();
+    if (!bloc.isClosed) {
+      bloc.add(
+        LoadOperatingHoursEvent(
+          venueId: widget.ground.venueId,
+          groundId: widget.ground.id,
+        ),
+      );
+    }
   }
 
   void _loadSlotsForDateRange() {
-    if (_selectedDateRange == null) return;
-    
-    context.read<BookingsBloc>().add(
-          LoadSlotsForDateRangeEvent(
-            groundId: widget.ground.id,
-            startDate: _selectedDateRange!.start,
-            endDate: _selectedDateRange!.end,
-            duration: _selectedDuration,
-          ),
-        );
+    if (_selectedDateRange == null || !mounted) return;
+    final bloc = context.read<BookingsBloc>();
+    if (!bloc.isClosed) {
+      bloc.add(
+        LoadSlotsForDateRangeEvent(
+          groundId: widget.ground.id,
+          startDate: _selectedDateRange!.start,
+          endDate: _selectedDateRange!.end,
+          duration: _selectedDuration,
+        ),
+      );
+    }
   }
 
   void _createBooking() {
     if (_selectedDay == null || _selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a day and time slot')),
+      );
+      return;
+    }
+
+    if (_selectedPaymentMethod == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a payment method')),
       );
       return;
     }
@@ -91,14 +110,18 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
       int.parse(dateParts[2]),
     );
 
-    context.read<BookingsBloc>().add(
-          CreateBookingEvent(
-            groundId: widget.ground.id,
-            bookingDate: bookingDate,
-            startTime: _selectedTime!,
-            durationHours: _selectedDuration,
-          ),
-        );
+    final bloc = context.read<BookingsBloc>();
+    if (!bloc.isClosed && mounted) {
+      bloc.add(
+        CreateBookingEvent(
+          groundId: widget.ground.id,
+          bookingDate: bookingDate,
+          startTime: _selectedTime!,
+          durationHours: _selectedDuration,
+          paymentMethod: _selectedPaymentMethod!,
+        ),
+      );
+    }
   }
 
   // Get available days from operating hours that fall within the selected date range
@@ -205,13 +228,16 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
       body: BlocConsumer<BookingsBloc, BookingsState>(
         listener: (context, state) {
           if (state is BookingCreated) {
-            context.push(
-              RouteConstants.payment,
-              extra: {
-                'bookingId': state.booking.id,
-                'amount': state.booking.price,
-              },
+            // Show success message and navigate back
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Booking confirmed! Amount: Rs. ${state.booking.price.toStringAsFixed(0)}'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
             );
+            // Navigate back to venues list
+            context.pop();
           } else if (state is BookingsError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
@@ -523,6 +549,64 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
                     },
                   ),
                 ],
+                
+                // Payment Method Selection (shown when time slot is selected)
+                if (_selectedTime != null) ...[
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Select Payment Method',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('Easy Paisa'),
+                          selected: _selectedPaymentMethod == PaymentGateway.easypaisa,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedPaymentMethod = PaymentGateway.easypaisa;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('JazzCash'),
+                          selected: _selectedPaymentMethod == PaymentGateway.jazzcash,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedPaymentMethod = PaymentGateway.jazzcash;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('Card'),
+                          selected: _selectedPaymentMethod == PaymentGateway.card,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _selectedPaymentMethod = PaymentGateway.card;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                     ],
                   ),
                 ),
@@ -545,7 +629,7 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
                   child: SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: (state is BookingsLoading || _selectedDay == null || _selectedTime == null)
+                      onPressed: (state is BookingsLoading || _selectedDay == null || _selectedTime == null || _selectedPaymentMethod == null)
                           ? null
                           : _createBooking,
                       style: ElevatedButton.styleFrom(

@@ -49,10 +49,11 @@ class BookingCreated extends BookingsState {
 
 class MyBookingsLoaded extends BookingsState {
   final List<BookingEntity> bookings;
-  const MyBookingsLoaded(this.bookings);
+  final String type; // 'upcoming' or 'past'
+  const MyBookingsLoaded(this.bookings, this.type);
 
   @override
-  List<Object> get props => [bookings];
+  List<Object> get props => [bookings, type];
 }
 
 class BookingDetailsLoaded extends BookingsState {

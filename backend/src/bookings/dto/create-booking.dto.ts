@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsDateString, IsInt, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsInt, IsIn, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateBookingDto {
@@ -21,5 +21,11 @@ export class CreateBookingDto {
   @IsInt()
   @IsIn([2, 3])
   durationHours: 2 | 3;
+
+  @ApiProperty({ example: 'easypaisa', enum: ['easypaisa', 'jazzcash', 'card'], required: false })
+  @IsString()
+  @IsOptional()
+  @IsIn(['easypaisa', 'jazzcash', 'card'])
+  paymentMethod?: string;
 }
 

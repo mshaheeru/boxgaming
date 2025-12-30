@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../payments/domain/entities/payment_entity.dart';
 
 abstract class BookingsEvent extends Equatable {
   const BookingsEvent();
@@ -57,16 +58,18 @@ class CreateBookingEvent extends BookingsEvent {
   final DateTime bookingDate;
   final String startTime;
   final int durationHours;
+  final PaymentGateway paymentMethod;
 
   const CreateBookingEvent({
     required this.groundId,
     required this.bookingDate,
     required this.startTime,
     required this.durationHours,
+    required this.paymentMethod,
   });
 
   @override
-  List<Object> get props => [groundId, bookingDate, startTime, durationHours];
+  List<Object> get props => [groundId, bookingDate, startTime, durationHours, paymentMethod];
 }
 
 class LoadMyBookingsEvent extends BookingsEvent {

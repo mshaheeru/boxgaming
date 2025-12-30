@@ -17,52 +17,109 @@ class BookingDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => context.read<BookingsBloc>()
-        ..add(LoadBookingDetailsEvent(bookingId)),
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Booking Details'),
-        ),
-        body: BlocConsumer<BookingsBloc, BookingsState>(
-          listener: (context, state) {
-            if (state is BookingCancelled) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Booking cancelled successfully')),
-              );
+    // Use BlocProvider.value to reuse the existing BLoC instead of creating a new one
+    return BlocProvider.value(
+      value: context.read<BookingsBloc>(),
+      child: _BookingDetailContent(bookingId: bookingId),
+    );
+  }
+}
+
+class _BookingDetailContent extends StatefulWidget {
+  final String bookingId;
+
+  const _BookingDetailContent({required this.bookingId});
+
+  @override
+  State<_BookingDetailContent> createState() => _BookingDetailContentState();
+}
+
+class _BookingDetailContentState extends State<_BookingDetailContent> {
+  bool _hasRequestedDetails = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load booking details after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final bloc = context.read<BookingsBloc>();
+        if (!bloc.isClosed) {
+          _hasRequestedDetails = true;
+          bloc.add(LoadBookingDetailsEvent(widget.bookingId));
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Booking Details'),
+      ),
+      body: BlocConsumer<BookingsBloc, BookingsState>(
+        listener: (context, state) {
+          if (state is BookingCancelled) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Booking cancelled successfully')),
+            );
+            if (mounted) {
               context.pop();
             }
-          },
-          builder: (context, state) {
-            if (state is BookingsLoading) {
-              return const LoadingWidget(message: 'Loading booking details...');
-            }
+          }
+        },
+        buildWhen: (previous, current) {
+          // Only rebuild for states relevant to booking details
+          // Don't rebuild on MyBookingsLoaded (that's for the list page) unless we've requested details
+          if (current is MyBookingsLoaded && !_hasRequestedDetails) {
+            return false; // Don't rebuild if we haven't requested details yet
+          }
+          return current is BookingsLoading ||
+                 current is BookingsError ||
+                 current is BookingDetailsLoaded ||
+                 current is BookingCancelled;
+        },
+        builder: (context, state) {
+          // Show loading if we're loading OR if state is not the details we want
+          if (state is BookingsLoading) {
+            return const LoadingWidget(message: 'Loading booking details...');
+          }
+          
+          // If state is MyBookingsLoaded but we've requested details, show loading
+          if (state is! BookingDetailsLoaded && state is! BookingsError) {
+            return const LoadingWidget(message: 'Loading booking details...');
+          }
 
-            if (state is BookingsError) {
-              return ErrorDisplayWidget(
-                message: state.message,
-                onRetry: () {
-                  context.read<BookingsBloc>().add(LoadBookingDetailsEvent(bookingId));
-                },
-              );
-            }
+          if (state is BookingsError) {
+            return ErrorDisplayWidget(
+              message: state.message,
+              onRetry: () {
+                if (!mounted) return;
+                final bloc = context.read<BookingsBloc>();
+                if (!bloc.isClosed) {
+                  bloc.add(LoadBookingDetailsEvent(widget.bookingId));
+                }
+              },
+            );
+          }
 
-            if (state is BookingDetailsLoaded) {
-              return _BookingDetailContent(booking: state.booking);
-            }
+          if (state is BookingDetailsLoaded) {
+            return _BookingDetailView(booking: state.booking);
+          }
 
-            return const SizedBox.shrink();
-          },
-        ),
+          // Default: show loading while waiting for details
+          return const LoadingWidget(message: 'Loading booking details...');
+        },
       ),
     );
   }
 }
 
-class _BookingDetailContent extends StatelessWidget {
+class _BookingDetailView extends StatelessWidget {
   final BookingEntity booking;
 
-  const _BookingDetailContent({required this.booking});
+  const _BookingDetailView({required this.booking});
 
   @override
   Widget build(BuildContext context) {
@@ -190,18 +247,22 @@ class _BookingDetailContent extends StatelessWidget {
   void _showCancelDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Cancel Booking'),
         content: const Text('Are you sure you want to cancel this booking?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('No'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              context.read<BookingsBloc>().add(CancelBookingEvent(booking.id));
+              Navigator.pop(dialogContext);
+              if (!context.mounted) return;
+              final bloc = context.read<BookingsBloc>();
+              if (!bloc.isClosed) {
+                bloc.add(CancelBookingEvent(booking.id));
+              }
             },
             child: const Text('Yes', style: TextStyle(color: Colors.red)),
           ),

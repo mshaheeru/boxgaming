@@ -62,6 +62,7 @@ class BookingsBloc extends Bloc<BookingsEvent, BookingsState> {
       bookingDate: event.bookingDate,
       startTime: event.startTime,
       durationHours: event.durationHours,
+      paymentMethod: event.paymentMethod.name,
     );
     result.fold(
       (failure) => emit(BookingsError(failure.message)),
@@ -77,7 +78,7 @@ class BookingsBloc extends Bloc<BookingsEvent, BookingsState> {
     final result = await getMyBookingsUseCase(event.type);
     result.fold(
       (failure) => emit(BookingsError(failure.message)),
-      (bookings) => emit(MyBookingsLoaded(bookings)),
+      (bookings) => emit(MyBookingsLoaded(bookings, event.type)),
     );
   }
 

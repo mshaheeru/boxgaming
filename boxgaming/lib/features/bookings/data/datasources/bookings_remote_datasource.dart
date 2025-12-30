@@ -32,6 +32,7 @@ abstract class BookingsRemoteDataSource {
     required DateTime bookingDate,
     required String startTime,
     required int durationHours,
+    required String paymentMethod,
   });
   
   Future<List<BookingModel>> getMyBookings(String type);
@@ -157,6 +158,7 @@ class BookingsRemoteDataSourceImpl implements BookingsRemoteDataSource {
     required DateTime bookingDate,
     required String startTime,
     required int durationHours,
+    required String paymentMethod,
   }) async {
     try {
       final response = await apiClient.dio.post(
@@ -166,6 +168,7 @@ class BookingsRemoteDataSourceImpl implements BookingsRemoteDataSource {
           'bookingDate': DateFormatters.formatDate(bookingDate),
           'startTime': startTime,
           'durationHours': durationHours,
+          'paymentMethod': paymentMethod,
         },
       );
       try {

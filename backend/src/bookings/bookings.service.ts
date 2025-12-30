@@ -18,7 +18,7 @@ export class BookingsService {
    * Create a pending booking (before payment)
    */
   async createPendingBooking(customerId: string, dto: CreateBookingDto) {
-    const { groundId, bookingDate, startTime, durationHours } = dto;
+    const { groundId, bookingDate, startTime, durationHours, paymentMethod } = dto;
 
     // Verify ground exists
     const supabase = this.supabaseService.getAdminClient();
@@ -83,7 +83,9 @@ export class BookingsService {
       // Generate booking code
       const bookingCode = this.qrService.generateBookingCode();
 
-      // Create pending booking
+      // Create booking - if payment method is provided, mark as paid directly
+      // Note: payment_status enum only supports 'paid' and 'refunded', not 'pending'
+      const isPaid = !!paymentMethod;
       const { data: booking, error: createError } = await supabase
         .from('bookings')
         .insert({
@@ -95,8 +97,8 @@ export class BookingsService {
           start_time: startTime,
           duration_hours: durationHours,
           price,
-          status: 'confirmed', // Will be confirmed after payment
-          payment_status: 'paid', // Temporary, will be updated by payment webhook
+          status: isPaid ? 'confirmed' : 'pending',
+          payment_status: 'paid', // Always 'paid' since payment method is always provided now, and enum doesn't support 'pending'
         })
         .select(`
           *,
@@ -110,6 +112,23 @@ export class BookingsService {
 
       if (createError || !booking) {
         throw new BadRequestException(`Failed to create booking: ${createError?.message}`);
+      }
+
+      // If payment method is provided, create a payment record marked as paid
+      if (isPaid && paymentMethod) {
+        const { error: paymentError } = await supabase
+          .from('payments')
+          .insert({
+            booking_id: booking.id,
+            amount: price,
+            gateway: paymentMethod,
+            status: 'completed',
+          });
+
+        if (paymentError) {
+          // Log error but don't fail the booking creation
+          console.error(`Failed to create payment record: ${paymentError.message}`);
+        }
       }
 
       return booking;
