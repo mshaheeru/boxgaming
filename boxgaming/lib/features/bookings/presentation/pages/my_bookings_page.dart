@@ -8,6 +8,7 @@ import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/app_drawer.dart';
 import '../../../../core/constants/route_constants.dart';
+import '../../../../core/extensions/bloc_extensions.dart';
 import '../../domain/entities/booking_entity.dart';
 import 'booking_detail_page.dart';
 
@@ -62,10 +63,9 @@ class _MyBookingsPageState extends State<MyBookingsPage>
   void _loadBookings() {
     if (!mounted) return;
     final type = _tabController.index == 0 ? 'upcoming' : 'past';
-    final bloc = context.read<BookingsBloc>();
-    if (!bloc.isClosed) {
-      bloc.add(LoadMyBookingsEvent(type: type));
-    }
+    context.safeReadBlocAdd<BookingsBloc, LoadMyBookingsEvent>(
+      LoadMyBookingsEvent(type: type),
+    );
   }
 
   @override
@@ -142,11 +142,10 @@ class _BookingsListState extends State<_BookingsList> {
 
   void _loadBookings() {
     if (!mounted) return;
-    final bloc = context.read<BookingsBloc>();
-    if (!bloc.isClosed) {
-      _hasLoaded = true;
-      bloc.add(LoadMyBookingsEvent(type: widget.type));
-    }
+    _hasLoaded = true;
+    context.safeReadBlocAdd<BookingsBloc, LoadMyBookingsEvent>(
+      LoadMyBookingsEvent(type: widget.type),
+    );
   }
 
   @override
@@ -208,13 +207,12 @@ class _BookingsListState extends State<_BookingsList> {
           if (state is BookingsError) {
             return ErrorDisplayWidget(
               message: state.message,
-              onRetry: () {
-                if (!mounted) return;
-                final bloc = context.read<BookingsBloc>();
-                if (!bloc.isClosed) {
-                  bloc.add(LoadMyBookingsEvent(type: widget.type));
-                }
-              },
+            onRetry: () {
+              if (!mounted) return;
+              context.safeReadBlocAdd<BookingsBloc, LoadMyBookingsEvent>(
+                LoadMyBookingsEvent(type: widget.type),
+              );
+            },
             );
           }
           return const SizedBox.shrink();
@@ -243,10 +241,9 @@ class _BookingsListState extends State<_BookingsList> {
         return RefreshIndicator(
           onRefresh: () async {
             if (!mounted) return;
-            final bloc = context.read<BookingsBloc>();
-            if (!bloc.isClosed) {
-              bloc.add(LoadMyBookingsEvent(type: widget.type));
-            }
+            context.safeReadBlocAdd<BookingsBloc, LoadMyBookingsEvent>(
+              LoadMyBookingsEvent(type: widget.type),
+            );
           },
           child: ListView.builder(
             itemCount: loadedState.bookings.length,

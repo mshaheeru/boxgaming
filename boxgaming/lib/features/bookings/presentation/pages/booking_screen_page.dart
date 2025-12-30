@@ -8,6 +8,7 @@ import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../core/utils/date_formatters.dart';
 import '../../../../core/constants/route_constants.dart';
+import '../../../../core/extensions/bloc_extensions.dart';
 import '../../domain/entities/slot_entity.dart';
 import '../../domain/entities/operating_hours_entity.dart';
 import '../../domain/entities/day_slots_entity.dart';
@@ -61,30 +62,24 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
 
   void _loadOperatingHours() {
     if (!mounted) return;
-    final bloc = context.read<BookingsBloc>();
-    if (!bloc.isClosed) {
-      bloc.add(
-        LoadOperatingHoursEvent(
-          venueId: widget.ground.venueId,
-          groundId: widget.ground.id,
-        ),
-      );
-    }
+    context.safeReadBlocAdd<BookingsBloc, LoadOperatingHoursEvent>(
+      LoadOperatingHoursEvent(
+        venueId: widget.ground.venueId,
+        groundId: widget.ground.id,
+      ),
+    );
   }
 
   void _loadSlotsForDateRange() {
     if (_selectedDateRange == null || !mounted) return;
-    final bloc = context.read<BookingsBloc>();
-    if (!bloc.isClosed) {
-      bloc.add(
-        LoadSlotsForDateRangeEvent(
-          groundId: widget.ground.id,
-          startDate: _selectedDateRange!.start,
-          endDate: _selectedDateRange!.end,
-          duration: _selectedDuration,
-        ),
-      );
-    }
+    context.safeReadBlocAdd<BookingsBloc, LoadSlotsForDateRangeEvent>(
+      LoadSlotsForDateRangeEvent(
+        groundId: widget.ground.id,
+        startDate: _selectedDateRange!.start,
+        endDate: _selectedDateRange!.end,
+        duration: _selectedDuration,
+      ),
+    );
   }
 
   void _createBooking() {
@@ -110,18 +105,16 @@ class _BookingScreenPageState extends State<BookingScreenPage> {
       int.parse(dateParts[2]),
     );
 
-    final bloc = context.read<BookingsBloc>();
-    if (!bloc.isClosed && mounted) {
-      bloc.add(
-        CreateBookingEvent(
-          groundId: widget.ground.id,
-          bookingDate: bookingDate,
-          startTime: _selectedTime!,
-          durationHours: _selectedDuration,
-          paymentMethod: _selectedPaymentMethod!,
-        ),
-      );
-    }
+    if (!mounted) return;
+    context.safeReadBlocAdd<BookingsBloc, CreateBookingEvent>(
+      CreateBookingEvent(
+        groundId: widget.ground.id,
+        bookingDate: bookingDate,
+        startTime: _selectedTime!,
+        durationHours: _selectedDuration,
+        paymentMethod: _selectedPaymentMethod!,
+      ),
+    );
   }
 
   // Get available days from operating hours that fall within the selected date range

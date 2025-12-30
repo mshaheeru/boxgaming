@@ -5,6 +5,7 @@ import '../bloc/venues_bloc.dart';
 import '../bloc/venues_event.dart';
 import '../bloc/venues_state.dart';
 import '../../../../core/constants/route_constants.dart';
+import '../../../../core/extensions/bloc_extensions.dart';
 import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../domain/entities/venue_entity.dart';
@@ -44,7 +45,9 @@ class _VenueDetailPageState extends State<VenueDetailPage> {
       _isLoading = true;
       _errorMessage = null;
     });
-    context.read<VenuesBloc>().add(LoadVenueDetailsEvent(widget.venueId));
+    context.safeReadBlocAdd<VenuesBloc, LoadVenueDetailsEvent>(
+      LoadVenueDetailsEvent(widget.venueId),
+    );
   }
 
   @override

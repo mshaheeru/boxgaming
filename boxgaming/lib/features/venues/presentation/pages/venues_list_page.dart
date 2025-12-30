@@ -6,6 +6,7 @@ import '../bloc/venues_bloc.dart';
 import '../bloc/venues_event.dart';
 import '../bloc/venues_state.dart';
 import '../../../../core/constants/route_constants.dart';
+import '../../../../core/extensions/bloc_extensions.dart';
 import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/app_drawer.dart';
@@ -31,7 +32,9 @@ class _VenuesListPageState extends State<VenuesListPage> {
     final currentState = context.read<VenuesBloc>().state;
     if (currentState is VenuesInitial || 
         (currentState is VenuesLoaded && currentState.venues.isEmpty)) {
-      context.read<VenuesBloc>().add(const LoadVenuesEvent());
+      context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+        const LoadVenuesEvent(),
+      );
     }
     _scrollController.addListener(_onScroll);
   }
@@ -48,7 +51,9 @@ class _VenuesListPageState extends State<VenuesListPage> {
       if (!_isLoadingMore) {
         _isLoadingMore = true;
         _currentPage++;
-        context.read<VenuesBloc>().add(LoadVenuesEvent(page: _currentPage));
+        context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+          LoadVenuesEvent(page: _currentPage),
+        );
       }
     }
   }
@@ -91,7 +96,9 @@ class _VenuesListPageState extends State<VenuesListPage> {
             return ErrorDisplayWidget(
               message: state.message,
               onRetry: () {
-                context.read<VenuesBloc>().add(const LoadVenuesEvent(refresh: true));
+                context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+                  const LoadVenuesEvent(refresh: true),
+                );
               },
             );
           }
@@ -101,7 +108,9 @@ class _VenuesListPageState extends State<VenuesListPage> {
               return RefreshIndicator(
                 onRefresh: () async {
                   _currentPage = 1;
-                  context.read<VenuesBloc>().add(const LoadVenuesEvent(refresh: true));
+                  context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+                  const LoadVenuesEvent(refresh: true),
+                );
                 },
                 color: const Color(0xFFFF1744),
                 child: Center(
@@ -131,7 +140,9 @@ class _VenuesListPageState extends State<VenuesListPage> {
             return RefreshIndicator(
               onRefresh: () async {
                 _currentPage = 1;
-                context.read<VenuesBloc>().add(const LoadVenuesEvent(refresh: true));
+                context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+                  const LoadVenuesEvent(refresh: true),
+                );
               },
               color: const Color(0xFFFF1744),
               child: ListView.builder(
@@ -163,14 +174,18 @@ class _VenuesListPageState extends State<VenuesListPage> {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
                   // Emit the preserved venues list state
-                  context.read<VenuesBloc>().add(const LoadVenuesEvent(refresh: false));
+                  context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+                    const LoadVenuesEvent(refresh: false),
+                  );
                 }
               });
               // Show the preserved venues while reloading
               return RefreshIndicator(
                 onRefresh: () async {
                   _currentPage = 1;
-                  context.read<VenuesBloc>().add(const LoadVenuesEvent(refresh: true));
+                  context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+                  const LoadVenuesEvent(refresh: true),
+                );
                 },
                 color: const Color(0xFFFF1744),
                 child: ListView.builder(
@@ -186,7 +201,9 @@ class _VenuesListPageState extends State<VenuesListPage> {
               // No preserved list, reload
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
-                  context.read<VenuesBloc>().add(const LoadVenuesEvent(refresh: false));
+                  context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+                    const LoadVenuesEvent(refresh: false),
+                  );
                 }
               });
               return const LoadingWidget(message: 'Loading venues...');
@@ -198,7 +215,9 @@ class _VenuesListPageState extends State<VenuesListPage> {
             // Trigger load if not already loading
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && context.read<VenuesBloc>().state is VenuesInitial) {
-                context.read<VenuesBloc>().add(const LoadVenuesEvent());
+                context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+        const LoadVenuesEvent(),
+      );
               }
             });
             return const LoadingWidget(message: 'Loading venues...');

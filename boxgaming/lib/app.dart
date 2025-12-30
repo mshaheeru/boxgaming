@@ -22,9 +22,27 @@ class BoxGamingApp extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider.value(value: authBloc),
-        BlocProvider(create: (_) => di.sl<VenuesBloc>()),
-        BlocProvider(create: (_) => di.sl<BookingsBloc>()),
-        BlocProvider(create: (_) => di.sl<PaymentsBloc>()),
+        BlocProvider(
+          create: (_) {
+            final bloc = di.sl<VenuesBloc>();
+            // Never close root-level BLoCs manually - they persist for app lifetime
+            return bloc;
+          },
+        ),
+        BlocProvider(
+          create: (_) {
+            final bloc = di.sl<BookingsBloc>();
+            // Never close root-level BLoCs manually - they persist for app lifetime
+            return bloc;
+          },
+        ),
+        BlocProvider(
+          create: (_) {
+            final bloc = di.sl<PaymentsBloc>();
+            // Never close root-level BLoCs manually - they persist for app lifetime
+            return bloc;
+          },
+        ),
         // OwnerBloc and AdminBloc are created lazily in their respective pages
         // This prevents errors when they're closed during logout/login cycles
       ],

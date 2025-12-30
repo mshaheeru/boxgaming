@@ -8,6 +8,7 @@ import '../bloc/bookings_state.dart';
 import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../core/utils/date_formatters.dart';
+import '../../../../core/extensions/bloc_extensions.dart';
 import '../../domain/entities/booking_entity.dart';
 
 class BookingDetailPage extends StatelessWidget {
@@ -43,11 +44,10 @@ class _BookingDetailContentState extends State<_BookingDetailContent> {
     // Load booking details after the first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        final bloc = context.read<BookingsBloc>();
-        if (!bloc.isClosed) {
-          _hasRequestedDetails = true;
-          bloc.add(LoadBookingDetailsEvent(widget.bookingId));
-        }
+        _hasRequestedDetails = true;
+        context.safeReadBlocAdd<BookingsBloc, LoadBookingDetailsEvent>(
+          LoadBookingDetailsEvent(widget.bookingId),
+        );
       }
     });
   }
@@ -96,10 +96,9 @@ class _BookingDetailContentState extends State<_BookingDetailContent> {
               message: state.message,
               onRetry: () {
                 if (!mounted) return;
-                final bloc = context.read<BookingsBloc>();
-                if (!bloc.isClosed) {
-                  bloc.add(LoadBookingDetailsEvent(widget.bookingId));
-                }
+                context.safeReadBlocAdd<BookingsBloc, LoadBookingDetailsEvent>(
+                  LoadBookingDetailsEvent(widget.bookingId),
+                );
               },
             );
           }
@@ -259,10 +258,9 @@ class _BookingDetailView extends StatelessWidget {
             onPressed: () {
               Navigator.pop(dialogContext);
               if (!context.mounted) return;
-              final bloc = context.read<BookingsBloc>();
-              if (!bloc.isClosed) {
-                bloc.add(CancelBookingEvent(booking.id));
-              }
+              context.safeReadBlocAdd<BookingsBloc, CancelBookingEvent>(
+                CancelBookingEvent(booking.id),
+              );
             },
             child: const Text('Yes', style: TextStyle(color: Colors.red)),
           ),
