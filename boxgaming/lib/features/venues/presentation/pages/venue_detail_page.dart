@@ -109,8 +109,10 @@ class _VenueDetailView extends StatelessWidget {
         SliverAppBar(
           expandedHeight: 300,
           pinned: true,
+          backgroundColor: Colors.transparent,
+          automaticallyImplyLeading: false, // Remove back button from image area
           flexibleSpace: FlexibleSpaceBar(
-            title: Text(venue.name),
+            // Removed title to keep image clean
             background: venue.photos.isNotEmpty
                 ? Image.network(
                     venue.photos.first,
@@ -142,6 +144,15 @@ class _VenueDetailView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Venue name (moved from image)
+                Text(
+                  venue.name,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     const Icon(Icons.star, color: Colors.amber),
