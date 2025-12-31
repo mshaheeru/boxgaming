@@ -7,6 +7,9 @@ class DashboardModel extends DashboardEntity {
     required super.todayRevenue,
     required super.totalBookings,
     required super.totalRevenue,
+    required super.currentMonthRevenue,
+    required super.currentMonthBookings,
+    required super.bookingsInProgress,
   });
 
   factory DashboardModel.fromJson(Map<String, dynamic> json) {
@@ -22,6 +25,9 @@ class DashboardModel extends DashboardEntity {
       todayRevenue: (json['todayRevenue'] as num?)?.toDouble() ?? 0.0,
       totalBookings: json['totalBookings'] as int? ?? 0,
       totalRevenue: (json['totalRevenue'] as num?)?.toDouble() ?? 0.0,
+      currentMonthRevenue: (json['currentMonthRevenue'] as num?)?.toDouble() ?? 0.0,
+      currentMonthBookings: json['currentMonthBookings'] as int? ?? 0,
+      bookingsInProgress: json['bookingsInProgress'] as int? ?? 0,
     );
   }
 
@@ -31,6 +37,9 @@ class DashboardModel extends DashboardEntity {
       todayRevenue: todayRevenue,
       totalBookings: totalBookings,
       totalRevenue: totalRevenue,
+      currentMonthRevenue: currentMonthRevenue,
+      currentMonthBookings: currentMonthBookings,
+      bookingsInProgress: bookingsInProgress,
     );
   }
 }

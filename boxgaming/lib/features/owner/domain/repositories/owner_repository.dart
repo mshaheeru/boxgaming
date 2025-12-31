@@ -6,6 +6,8 @@ import '../../../bookings/domain/entities/booking_entity.dart';
 abstract class OwnerRepository {
   Future<Either<Failure, DashboardEntity>> getTodayBookings();
   
+  Future<Either<Failure, List<BookingEntity>>> getAllBookings();
+  
   Future<Either<Failure, void>> markBookingStarted(String bookingId);
   
   Future<Either<Failure, void>> markBookingCompleted(String bookingId);

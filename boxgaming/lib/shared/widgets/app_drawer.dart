@@ -69,11 +69,18 @@ class AppDrawer extends StatelessWidget {
                           index: 0,
                         ),
                         _DrawerTile(
+                          icon: Icons.business_rounded,
+                          title: 'Venue Management',
+                          route: RouteConstants.venueManagement,
+                          onTap: () => _navigateAndClose(context, RouteConstants.venueManagement),
+                          index: 1,
+                        ),
+                        _DrawerTile(
                           icon: Icons.qr_code_scanner_rounded,
                           title: 'QR Scanner',
                           route: RouteConstants.qrScanner,
                           onTap: () => _navigateAndClose(context, RouteConstants.qrScanner),
-                          index: 1,
+                          index: 2,
                         ),
                       ] else if (isAdmin) ...[
                         // Admin Navigation

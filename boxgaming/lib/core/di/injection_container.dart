@@ -37,6 +37,7 @@ import '../../features/payments/data/repositories/payments_repository_impl.dart'
 import '../../features/payments/data/datasources/payments_remote_datasource.dart';
 import '../../features/owner/presentation/bloc/owner_bloc.dart';
 import '../../features/owner/domain/usecases/get_today_bookings_usecase.dart';
+import '../../features/owner/domain/usecases/get_all_bookings_usecase.dart';
 import '../../features/owner/domain/usecases/mark_booking_started_usecase.dart';
 import '../../features/owner/domain/usecases/mark_booking_completed_usecase.dart';
 import '../../features/owner/domain/repositories/owner_repository.dart';
@@ -164,11 +165,13 @@ Future<void> init() async {
   sl.registerFactory(
     () => OwnerBloc(
       getTodayBookingsUseCase: sl(),
+      getAllBookingsUseCase: sl(),
       markBookingStartedUseCase: sl(),
       markBookingCompletedUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => GetTodayBookingsUseCase(sl()));
+  sl.registerLazySingleton(() => GetAllBookingsUseCase(sl()));
   sl.registerLazySingleton(() => MarkBookingStartedUseCase(sl()));
   sl.registerLazySingleton(() => MarkBookingCompletedUseCase(sl()));
   sl.registerLazySingleton<OwnerRepository>(

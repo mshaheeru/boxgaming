@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/dashboard_entity.dart';
+import '../../../bookings/domain/entities/booking_entity.dart';
 
 abstract class OwnerState extends Equatable {
   const OwnerState();
@@ -21,6 +22,14 @@ class DashboardLoaded extends OwnerState {
 }
 
 class BookingStatusUpdated extends OwnerState {}
+
+class AllBookingsLoaded extends OwnerState {
+  final List<BookingEntity> bookings;
+  const AllBookingsLoaded(this.bookings);
+
+  @override
+  List<Object> get props => [bookings];
+}
 
 class OwnerError extends OwnerState {
   final String message;

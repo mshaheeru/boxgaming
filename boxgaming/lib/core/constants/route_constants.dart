@@ -13,6 +13,7 @@ class RouteConstants {
   
   // Owner Routes
   static const String ownerDashboard = '/owner/dashboard';
+  static const String venueManagement = '/owner/venue-management';
   static const String qrScanner = '/owner/qr-scanner';
   
   // Admin Routes

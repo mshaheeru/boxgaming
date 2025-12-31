@@ -3,6 +3,7 @@ import '../../../../core/error/failures.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../domain/entities/dashboard_entity.dart';
 import '../../domain/repositories/owner_repository.dart';
+import '../../../bookings/domain/entities/booking_entity.dart';
 import '../datasources/owner_remote_datasource.dart';
 
 class OwnerRepositoryImpl implements OwnerRepository {
@@ -15,6 +16,18 @@ class OwnerRepositoryImpl implements OwnerRepository {
     try {
       final dashboard = await remoteDataSource.getTodayBookings();
       return Right(dashboard.toEntity());
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (e) {
+      return Left(ServerFailure('Unexpected error: ${e.toString()}'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<BookingEntity>>> getAllBookings() async {
+    try {
+      final bookings = await remoteDataSource.getAllBookings();
+      return Right(bookings.map((b) => b.toEntity()).toList());
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));
     } catch (e) {

@@ -16,6 +16,7 @@ import '../widgets/multi_step_venue_form.dart';
 import '../../../../core/di/injection_container.dart' as di;
 import '../../data/datasources/venue_management_remote_datasource.dart';
 import '../../../../core/error/exceptions.dart';
+import '../../../../shared/widgets/app_drawer.dart';
 
 class VenueManagementPage extends StatelessWidget {
   const VenueManagementPage({super.key});
@@ -28,6 +29,7 @@ class VenueManagementPage extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Venue Management'),
         ),
+        drawer: const AppDrawer(),
         body: BlocConsumer<VenueManagementBloc, VenueManagementState>(
           listener: (context, state) {
             if (state is PhotoUploaded) {

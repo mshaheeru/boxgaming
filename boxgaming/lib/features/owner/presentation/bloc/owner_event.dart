@@ -25,5 +25,7 @@ class MarkBookingCompletedEvent extends OwnerEvent {
   List<Object> get props => [bookingId];
 }
 
+class LoadAllBookingsEvent extends OwnerEvent {}
+
 
 

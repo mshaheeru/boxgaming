@@ -14,6 +14,7 @@ import '../../features/bookings/presentation/pages/booking_detail_page.dart';
 import '../../features/bookings/presentation/pages/booking_screen_page.dart';
 import '../../features/payments/presentation/pages/payment_page.dart';
 import '../../features/owner/presentation/pages/owner_dashboard_page.dart';
+import '../../features/owner/presentation/pages/venue_management_page.dart';
 import '../../features/owner/presentation/pages/qr_scanner_page.dart';
 import '../../features/auth/presentation/pages/change_password_page.dart';
 import '../../features/admin/presentation/pages/assign_owners_page.dart';
@@ -74,6 +75,10 @@ class AppRouter {
         GoRoute(
           path: RouteConstants.ownerDashboard,
           builder: (context, state) => const OwnerDashboardPage(),
+        ),
+        GoRoute(
+          path: RouteConstants.venueManagement,
+          builder: (context, state) => const VenueManagementPage(),
         ),
         GoRoute(
           path: RouteConstants.qrScanner,
