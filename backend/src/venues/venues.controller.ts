@@ -22,9 +22,11 @@ import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { VenueQueryDto } from './dto/venue-query.dto';
 import { CreateOperatingHoursDto } from './dto/create-operating-hours.dto';
+import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
 
 @ApiTags('venues')
 @Controller('venues')
+@UseInterceptors(CacheInterceptor) // Enable caching for all GET endpoints
 export class VenuesController {
   constructor(private readonly venuesService: VenuesService) {}
 

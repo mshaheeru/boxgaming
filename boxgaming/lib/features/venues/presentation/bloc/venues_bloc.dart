@@ -31,6 +31,7 @@ class VenuesBloc extends Bloc<VenuesEvent, VenuesState> {
       lat: event.lat,
       lng: event.lng,
       page: event.page,
+      forceRefresh: event.refresh,
     );
 
     result.fold(

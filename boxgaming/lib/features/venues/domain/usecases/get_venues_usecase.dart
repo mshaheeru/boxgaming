@@ -15,6 +15,7 @@ class GetVenuesUseCase {
     double? lng,
     int page = 1,
     int limit = 20,
+    bool forceRefresh = false,
   }) async {
     return await repository.getVenues(
       city: city,
@@ -23,6 +24,7 @@ class GetVenuesUseCase {
       lng: lng,
       page: page,
       limit: limit,
+      forceRefresh: forceRefresh,
     );
   }
 }

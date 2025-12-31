@@ -277,5 +277,93 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
     return false;
   }
+
+  /**
+   * Generic get method for caching
+   * @param key Cache key
+   * @returns Cached value or null
+   */
+  async get(key: string): Promise<string | null> {
+    if (this.client && this.isConnected) {
+      try {
+        return await this.client.get(key);
+      } catch (error) {
+        // Fallback to in-memory
+      }
+    }
+    // In-memory fallback
+    const stored = this.inMemoryStore.get(key);
+    if (stored && stored.expiresAt > Date.now()) {
+      return stored.value;
+    }
+    if (stored) {
+      this.inMemoryStore.delete(key);
+    }
+    return null;
+  }
+
+  /**
+   * Generic set method for caching
+   * @param key Cache key
+   * @param value Value to cache
+   * @param ttl Time to live in seconds
+   */
+  async set(key: string, value: string, ttl: number = 300): Promise<void> {
+    if (this.client && this.isConnected) {
+      try {
+        await this.client.setex(key, ttl, value);
+        return;
+      } catch (error) {
+        // Fallback to in-memory
+      }
+    }
+    // In-memory fallback
+    this.inMemoryStore.set(key, {
+      value: value,
+      expiresAt: Date.now() + ttl * 1000,
+    });
+  }
+
+  /**
+   * Delete a cache key
+   * @param key Cache key
+   */
+  async del(key: string): Promise<void> {
+    if (this.client && this.isConnected) {
+      try {
+        await this.client.del(key);
+        return;
+      } catch (error) {
+        // Fallback to in-memory
+      }
+    }
+    // In-memory fallback
+    this.inMemoryStore.delete(key);
+  }
+
+  /**
+   * Delete cache keys by pattern
+   * @param pattern Pattern to match (e.g., 'cache:venues:*')
+   */
+  async delByPattern(pattern: string): Promise<void> {
+    if (this.client && this.isConnected) {
+      try {
+        const keys = await this.client.keys(pattern);
+        if (keys.length > 0) {
+          await this.client.del(...keys);
+        }
+        return;
+      } catch (error) {
+        // Fallback to in-memory
+      }
+    }
+    // In-memory fallback
+    const regex = new RegExp(pattern.replace('*', '.*'));
+    for (const key of this.inMemoryStore.keys()) {
+      if (regex.test(key)) {
+        this.inMemoryStore.delete(key);
+      }
+    }
+  }
 }
 

@@ -7,6 +7,7 @@ import '../bloc/payments_state.dart';
 import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../domain/entities/payment_entity.dart';
+import '../../../../core/di/injection_container.dart' as di;
 
 class PaymentPage extends StatelessWidget {
   final String bookingId;
@@ -14,6 +15,25 @@ class PaymentPage extends StatelessWidget {
 
   const PaymentPage({
     super.key,
+    required this.bookingId,
+    required this.amount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Create PaymentsBloc lazily only when this page is accessed
+    return BlocProvider(
+      create: (_) => di.sl<PaymentsBloc>(),
+      child: _PaymentPageContent(bookingId: bookingId, amount: amount),
+    );
+  }
+}
+
+class _PaymentPageContent extends StatelessWidget {
+  final String bookingId;
+  final double amount;
+
+  const _PaymentPageContent({
     required this.bookingId,
     required this.amount,
   });

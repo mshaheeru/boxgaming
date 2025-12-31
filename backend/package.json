@@ -42,7 +42,8 @@
     "qrcode": "^1.5.3",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "compression": "^1.7.4"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.2.1",
@@ -56,6 +57,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/qrcode": "^1.5.5",
     "@types/uuid": "^9.0.7",
+    "@types/compression": "^1.7.5",
     "@typescript-eslint/eslint-plugin": "^6.17.0",
     "@typescript-eslint/parser": "^6.17.0",
     "eslint": "^8.56.0",

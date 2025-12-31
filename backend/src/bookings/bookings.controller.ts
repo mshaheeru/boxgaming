@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   Request,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
@@ -18,9 +19,11 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { SupabaseService } from '../supabase/supabase.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
 
 @ApiTags('bookings')
 @Controller('bookings')
+@UseInterceptors(CacheInterceptor) // Enable caching for GET endpoints
 export class BookingsController {
   constructor(
     private readonly bookingsService: BookingsService,

@@ -18,10 +18,13 @@ class ApiClient {
         baseUrl: baseUrl,
         connectTimeout: AppConstants.connectionTimeout,
         receiveTimeout: AppConstants.receiveTimeout,
+        sendTimeout: AppConstants.sendTimeout,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
+        // Enable request cancellation
+        validateStatus: (status) => status != null && status < 500,
       ),
     );
 

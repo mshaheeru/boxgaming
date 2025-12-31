@@ -11,9 +11,10 @@ abstract class VenuesRepository {
     double? lng,
     int page = 1,
     int limit = 20,
+    bool forceRefresh = false,
   });
   
-  Future<Either<Failure, VenueEntity>> getVenueDetails(String id);
+  Future<Either<Failure, VenueEntity>> getVenueDetails(String id, {bool forceRefresh = false});
   
   Future<Either<Failure, List<GroundEntity>>> getVenueGrounds(String venueId);
 }

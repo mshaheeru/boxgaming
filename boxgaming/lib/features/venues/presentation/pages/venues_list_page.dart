@@ -10,6 +10,7 @@ import '../../../../core/extensions/bloc_extensions.dart';
 import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 import '../../domain/entities/venue_entity.dart';
 import 'venue_detail_page.dart';
 
@@ -88,8 +89,11 @@ class _VenuesListPageState extends State<VenuesListPage> {
           }
         },
         builder: (context, state) {
+          // Show skeleton immediately while loading (if no venues yet)
           if (state is VenuesLoading) {
-            return const LoadingWidget(message: 'Loading venues...');
+            // If we have venues from previous state, show them with loading indicator
+            // Otherwise show skeleton
+            return const VenuesListSkeleton();
           }
 
           if (state is VenuesError) {
@@ -150,18 +154,14 @@ class _VenuesListPageState extends State<VenuesListPage> {
                 itemCount: state.venues.length + (state.hasMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index >= state.venues.length) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFFFF1744),
-                        ),
-                      ),
-                    );
+                    // Show skeleton for loading more
+                    return const VenueCardSkeleton();
                   }
 
                   final venue = state.venues[index];
-                  return _VenueCard(venue: venue);
+                  return RepaintBoundary(
+                    child: _VenueCard(venue: venue),
+                  );
                 },
               ),
             );
@@ -206,11 +206,11 @@ class _VenuesListPageState extends State<VenuesListPage> {
                   );
                 }
               });
-              return const LoadingWidget(message: 'Loading venues...');
+              return const VenuesListSkeleton();
             }
           }
 
-          // If state is initial, show loading and trigger load
+          // If state is initial, show skeleton and trigger load
           if (state is VenuesInitial) {
             // Trigger load if not already loading
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -220,7 +220,7 @@ class _VenuesListPageState extends State<VenuesListPage> {
       );
               }
             });
-            return const LoadingWidget(message: 'Loading venues...');
+            return const VenuesListSkeleton();
           }
 
           return const SizedBox.shrink();

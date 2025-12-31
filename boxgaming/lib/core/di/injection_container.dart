@@ -57,11 +57,15 @@ import '../../features/admin/domain/usecases/create_owner_usecase.dart';
 import '../../features/admin/domain/repositories/admin_repository.dart';
 import '../../features/admin/data/repositories/admin_repository_impl.dart';
 import '../../features/admin/data/datasources/admin_remote_datasource.dart';
+import '../cache/cache_helper.dart';
 
 final sl = GetIt.instance;
 
 Future<void> init() async {
-  //! Core - Initialize storage first
+  //! Core - Initialize cache first
+  await CacheHelper.init();
+  
+  //! Core - Initialize storage
   sl.registerLazySingleton(() => LocalStorage());
   sl.registerLazySingleton(() => SecureStorage());
   

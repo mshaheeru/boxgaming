@@ -7,6 +7,7 @@ import '../bloc/bookings_state.dart';
 import '../../../../shared/widgets/loading_widget.dart';
 import '../../../../shared/widgets/error_widget.dart';
 import '../../../../shared/widgets/app_drawer.dart';
+import '../../../../shared/widgets/skeleton_loader.dart';
 import '../../../../core/constants/route_constants.dart';
 import '../../../../core/extensions/bloc_extensions.dart';
 import '../../domain/entities/booking_entity.dart';
@@ -199,10 +200,10 @@ class _BookingsListState extends State<_BookingsList> {
           displayState = _lastLoadedState!;
         }
 
-        // Show loading if we don't have a state to display
+        // Show skeleton if we don't have a state to display
         if (displayState == null) {
           if (state is BookingsLoading && _lastLoadedState == null) {
-            return const LoadingWidget(message: 'Loading bookings...');
+            return const BookingsListSkeleton();
           }
           if (state is BookingsError) {
             return ErrorDisplayWidget(
@@ -229,7 +230,7 @@ class _BookingsListState extends State<_BookingsList> {
               _loadBookings();
             }
           });
-          return const LoadingWidget(message: 'Loading bookings...');
+          return const BookingsListSkeleton();
         }
 
         if (loadedState.bookings.isEmpty) {
@@ -249,7 +250,9 @@ class _BookingsListState extends State<_BookingsList> {
             itemCount: loadedState.bookings.length,
             itemBuilder: (context, index) {
               final booking = loadedState.bookings[index];
-              return _BookingCard(booking: booking);
+              return RepaintBoundary(
+                child: _BookingCard(booking: booking),
+              );
             },
           ),
         );

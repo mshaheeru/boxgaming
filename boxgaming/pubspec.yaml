@@ -44,6 +44,7 @@ dependencies:
   logger: ^2.0.2
   flutter_dotenv: ^5.1.0
   dartz: ^0.10.1  # Either pattern for error handling
+  shimmer: ^3.0.0  # For skeleton loaders
   
   # Supabase
   supabase_flutter: ^2.5.6

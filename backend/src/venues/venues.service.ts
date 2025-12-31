@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
+import { RedisService } from '../common/redis.service';
 import { CreateVenueDto } from './dto/create-venue.dto';
 import { UpdateVenueDto } from './dto/update-venue.dto';
 import { VenueQueryDto } from './dto/venue-query.dto';
@@ -7,7 +8,27 @@ import { CreateOperatingHoursDto } from './dto/create-operating-hours.dto';
 
 @Injectable()
 export class VenuesService {
-  constructor(private supabaseService: SupabaseService) {}
+  constructor(
+    private supabaseService: SupabaseService,
+    private redisService: RedisService,
+  ) {}
+
+  /**
+   * Invalidate venue-related cache
+   */
+  private async invalidateVenueCache(venueId?: string) {
+    try {
+      // Invalidate all venue list caches
+      await this.redisService.delByPattern('cache:/api/v1/venues*');
+      // Invalidate specific venue detail cache if ID provided
+      if (venueId) {
+        await this.redisService.del(`cache:/api/v1/venues/${venueId}`);
+      }
+    } catch (error) {
+      // Silently fail - cache invalidation is not critical
+      console.warn('Cache invalidation failed:', error);
+    }
+  }
 
   async create(ownerId: string, tenantId: string, dto: CreateVenueDto) {
     const supabase = this.supabaseService.getAdminClient();
@@ -41,6 +62,9 @@ export class VenuesService {
     if (error || !venue) {
       throw new Error(`Failed to create venue: ${error?.message}`);
     }
+
+    // Invalidate cache after creating venue
+    await this.invalidateVenueCache();
 
     return {
       ...venue,
@@ -274,6 +298,9 @@ export class VenuesService {
       throw new Error(`Failed to update venue: ${updateError?.message}`);
     }
 
+    // Invalidate cache after updating venue
+    await this.invalidateVenueCache(id);
+
     return updatedVenue;
   }
 
@@ -304,6 +331,9 @@ export class VenuesService {
       throw new Error(`Failed to delete venue: ${deleteError.message}`);
     }
 
+    // Invalidate cache after deleting venue
+    await this.invalidateVenueCache(id);
+
     return { message: 'Venue deleted successfully' };
   }
 
@@ -321,6 +351,9 @@ export class VenuesService {
       throw new Error(`Failed to approve venue: ${error?.message}`);
     }
 
+    // Invalidate cache after approving venue
+    await this.invalidateVenueCache(id);
+
     return venue;
   }
 
@@ -337,6 +370,9 @@ export class VenuesService {
     if (error || !venue) {
       throw new Error(`Failed to suspend venue: ${error?.message}`);
     }
+
+    // Invalidate cache after suspending venue
+    await this.invalidateVenueCache(id);
 
     return venue;
   }
@@ -373,6 +409,9 @@ export class VenuesService {
       throw new Error(`Failed to activate venue: ${updateError?.message}`);
     }
 
+    // Invalidate cache after activating venue
+    await this.invalidateVenueCache(id);
+
     return updatedVenue;
   }
 
@@ -407,6 +446,9 @@ export class VenuesService {
     if (updateError || !updatedVenue) {
       throw new Error(`Failed to deactivate venue: ${updateError?.message}`);
     }
+
+    // Invalidate cache after deactivating venue
+    await this.invalidateVenueCache(id);
 
     return updatedVenue;
   }

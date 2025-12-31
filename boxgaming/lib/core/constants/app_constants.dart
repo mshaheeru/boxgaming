@@ -7,9 +7,10 @@ class AppConstants {
   static const String tokenKey = 'auth_token';
   static const String userKey = 'user_data';
   
-  // Timeouts
-  static const Duration connectionTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  // Timeouts (optimized for better UX)
+  static const Duration connectionTimeout = Duration(seconds: 10); // Reduced from 30
+  static const Duration receiveTimeout = Duration(seconds: 15); // Reduced from 30
+  static const Duration sendTimeout = Duration(seconds: 10); // New: timeout for sending data
   
   // Pagination
   static const int defaultPageSize = 20;

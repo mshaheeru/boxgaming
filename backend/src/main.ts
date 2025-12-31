@@ -2,16 +2,39 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import * as compression from 'compression';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Request logging middleware
+  // Enable compression middleware (gzip/deflate)
+  app.use(compression({
+    filter: (req, res) => {
+      // Compress responses larger than 1KB
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+    level: 6, // Compression level (1-9, 6 is a good balance)
+    threshold: 1024, // Only compress responses larger than 1KB
+  }));
+
+  // Request duration logging middleware (enhanced)
   app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url} - ${new Date().toISOString()}`);
+    const start = Date.now();
+    const requestId = Math.random().toString(36).substring(7);
+    
+    console.log(`[${requestId}] ${req.method} ${req.url} - ${new Date().toISOString()}`);
+    
     res.on('finish', () => {
-      console.log(`${req.method} ${req.url} - ${res.statusCode} - ${new Date().toISOString()}`);
+      const duration = Date.now() - start;
+      const statusEmoji = res.statusCode >= 400 ? '❌' : res.statusCode >= 300 ? '⚠️' : '✅';
+      console.log(
+        `[${requestId}] ${statusEmoji} ${req.method} ${req.url} - ${res.statusCode} - ${duration}ms`
+      );
     });
+    
     next();
   });
 
@@ -61,7 +84,13 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   const host = process.env.HOST || '0.0.0.0'; // Bind to all network interfaces
   
-  await app.listen(port, host);
+  const server = await app.listen(port, host);
+  
+  // Enable HTTP keep-alive for better connection reuse
+  server.keepAliveTimeout = 65000; // 65 seconds (slightly longer than default 60s)
+  server.headersTimeout = 66000; // 66 seconds (must be > keepAliveTimeout)
+  
+  console.log('✅ HTTP Keep-Alive enabled (65s timeout)');
   
   // Get network IP for display (optional, for better logging)
   const networkUrl = process.env.NETWORK_URL || `http://192.168.0.65:${port}`;

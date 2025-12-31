@@ -8,8 +8,8 @@ class GetVenueDetailsUseCase {
 
   GetVenueDetailsUseCase(this.repository);
 
-  Future<Either<Failure, VenueEntity>> call(String id) async {
-    return await repository.getVenueDetails(id);
+  Future<Either<Failure, VenueEntity>> call(String id, {bool forceRefresh = false}) async {
+    return await repository.getVenueDetails(id, forceRefresh: forceRefresh);
   }
 }
 
