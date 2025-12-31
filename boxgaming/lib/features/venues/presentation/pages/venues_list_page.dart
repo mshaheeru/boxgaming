@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -23,6 +24,11 @@ class VenuesListPage extends StatefulWidget {
 
 class _VenuesListPageState extends State<VenuesListPage> {
   final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
+  Timer? _debounceTimer;
+  bool _isSearchVisible = false;
+  String? _currentSearchQuery;
   int _currentPage = 1;
   bool _isLoadingMore = false;
 
@@ -42,8 +48,45 @@ class _VenuesListPageState extends State<VenuesListPage> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        final query = value.trim().isEmpty ? null : value.trim();
+        if (query != _currentSearchQuery) {
+          _currentSearchQuery = query;
+          _currentPage = 1; // Reset to first page on new search
+          context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+            LoadVenuesEvent(search: query, refresh: true),
+          );
+        }
+      }
+    });
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _isSearchVisible = !_isSearchVisible;
+      if (_isSearchVisible) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _searchFocusNode.requestFocus();
+        });
+      } else {
+        _searchController.clear();
+        _currentSearchQuery = null;
+        _debounceTimer?.cancel();
+        context.safeReadBlocAdd<VenuesBloc, LoadVenuesEvent>(
+          const LoadVenuesEvent(refresh: true),
+        );
+      }
+    });
   }
 
   void _onScroll() {
@@ -64,19 +107,42 @@ class _VenuesListPageState extends State<VenuesListPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       appBar: AppBar(
-        title: const Text('VENUES'),
+        title: _isSearchVisible
+            ? TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Search venues...',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                  border: InputBorder.none,
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.white),
+                    onPressed: () {
+                      _searchController.clear();
+                      _onSearchChanged('');
+                    },
+                  ),
+                ),
+                onChanged: _onSearchChanged,
+              )
+            : const Text('VENUES'),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFFFF1744).withOpacity(0.2),
+              color: _isSearchVisible
+                  ? const Color(0xFFFF1744)
+                  : const Color(0xFFFF1744).withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
-              icon: const Icon(Icons.search, color: Color(0xFFFF1744)),
-              onPressed: () {
-                // TODO: Implement search
-              },
+              icon: Icon(
+                _isSearchVisible ? Icons.close : Icons.search,
+                color: Colors.white,
+              ),
+              onPressed: _toggleSearch,
             ),
           ),
         ],

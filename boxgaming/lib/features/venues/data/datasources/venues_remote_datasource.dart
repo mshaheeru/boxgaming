@@ -8,6 +8,7 @@ import '../../domain/entities/venue_entity.dart';
 
 abstract class VenuesRemoteDataSource {
   Future<List<VenueModel>> getVenues({
+    String? search,
     String? city,
     SportType? sportType,
     double? lat,
@@ -28,6 +29,7 @@ class VenuesRemoteDataSourceImpl implements VenuesRemoteDataSource {
 
   @override
   Future<List<VenueModel>> getVenues({
+    String? search,
     String? city,
     SportType? sportType,
     double? lat,
@@ -41,6 +43,9 @@ class VenuesRemoteDataSourceImpl implements VenuesRemoteDataSource {
         'limit': limit,
       };
       
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
       if (city != null) queryParams['city'] = city;
       if (sportType != null) {
         queryParams['sportType'] = sportType.name;

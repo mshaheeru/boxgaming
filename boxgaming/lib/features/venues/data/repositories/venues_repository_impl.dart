@@ -20,6 +20,7 @@ class VenuesRepositoryImpl implements VenuesRepository {
 
   @override
   Future<Either<Failure, List<VenueEntity>>> getVenues({
+    String? search,
     String? city,
     SportType? sportType,
     double? lat,
@@ -28,8 +29,8 @@ class VenuesRepositoryImpl implements VenuesRepository {
     int limit = 20,
     bool forceRefresh = false,
   }) async {
-    // Build cache key
-    final cacheKey = _buildCacheKey(city, sportType, lat, lng, page, limit);
+    // Build cache key (include search in cache key)
+    final cacheKey = _buildCacheKey(search, city, sportType, lat, lng, page, limit);
 
     // Try to get from cache first (unless force refresh)
     if (!forceRefresh) {
@@ -45,15 +46,16 @@ class VenuesRepositoryImpl implements VenuesRepository {
       if (cached != null) {
         // If cache is stale, refresh in background
         if (!CacheHelper.isValid(cacheKey, _freshCacheTTL)) {
-          _refreshInBackground(city, sportType, lat, lng, page, limit, cacheKey);
+          _refreshInBackground(search, city, sportType, lat, lng, page, limit, cacheKey);
         }
         return Right(cached.map((v) => v.toEntity()).toList());
       }
     }
 
-    // Fetch fresh data
+      // Fetch fresh data
     try {
       final venues = await remoteDataSource.getVenues(
+        search: search,
         city: city,
         sportType: sportType,
         lat: lat,
@@ -90,6 +92,7 @@ class VenuesRepositoryImpl implements VenuesRepository {
 
   /// Refresh cache in background (fire and forget)
   void _refreshInBackground(
+    String? search,
     String? city,
     SportType? sportType,
     double? lat,
@@ -100,6 +103,7 @@ class VenuesRepositoryImpl implements VenuesRepository {
   ) {
     remoteDataSource
         .getVenues(
+          search: search,
           city: city,
           sportType: sportType,
           lat: lat,
@@ -120,6 +124,7 @@ class VenuesRepositoryImpl implements VenuesRepository {
   }
 
   String _buildCacheKey(
+    String? search,
     String? city,
     SportType? sportType,
     double? lat,
@@ -127,7 +132,7 @@ class VenuesRepositoryImpl implements VenuesRepository {
     int page,
     int limit,
   ) {
-    return 'venues_${city ?? ''}_${sportType?.name ?? ''}_${lat ?? ''}_${lng ?? ''}_$page\_$limit';
+    return 'venues_${search ?? ''}_${city ?? ''}_${sportType?.name ?? ''}_${lat ?? ''}_${lng ?? ''}_$page\_$limit';
   }
 
   @override

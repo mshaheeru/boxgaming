@@ -17,7 +17,11 @@ class OwnerBookingsPage extends StatefulWidget {
   State<OwnerBookingsPage> createState() => _OwnerBookingsPageState();
 }
 
-class _OwnerBookingsPageState extends State<OwnerBookingsPage> {
+class _OwnerBookingsPageState extends State<OwnerBookingsPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true; // Keep the tab alive to preserve state
+
   String _selectedFilter = 'all'; // 'all', 'upcoming', 'past', 'today'
   bool _isLocked = false; // Lock state for booking card buttons
 
@@ -85,6 +89,7 @@ class _OwnerBookingsPageState extends State<OwnerBookingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Column(
       children: [
         // Filter chips and lock button

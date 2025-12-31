@@ -81,7 +81,7 @@ export class VenuesService {
    * For customers: all active venues (all tenants)
    */
   async findAll(query: VenueQueryDto, tenantId?: string) {
-    const { city, sportType, lat, lng, page = 1, limit = 10 } = query;
+    const { search, city, sportType, lat, lng, page = 1, limit = 10 } = query;
     const supabase = this.supabaseService.getAdminClient();
     const skip = (page - 1) * limit;
 
@@ -103,6 +103,14 @@ export class VenuesService {
       queryBuilder = queryBuilder.eq('is_active', true);
     }
 
+    // Search filter (name or address)
+    if (search && search.trim().length > 0) {
+      const searchTerm = search.trim();
+      queryBuilder = queryBuilder.or(
+        `name.ilike.%${searchTerm}%,address.ilike.%${searchTerm}%`
+      );
+    }
+
     if (city) {
       queryBuilder = queryBuilder.eq('city', city);
     }
@@ -122,6 +130,14 @@ export class VenuesService {
       // Customer view: only count active venues
       // Note: We filter for valid owner_id and tenant_id in application layer
       countQuery = countQuery.eq('is_active', true);
+    }
+
+    // Apply same search filter to count query
+    if (search && search.trim().length > 0) {
+      const searchTerm = search.trim();
+      countQuery = countQuery.or(
+        `name.ilike.%${searchTerm}%,address.ilike.%${searchTerm}%`
+      );
     }
 
     if (city) {

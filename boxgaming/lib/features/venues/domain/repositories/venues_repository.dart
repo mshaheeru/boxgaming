@@ -5,6 +5,7 @@ import '../entities/ground_entity.dart';
 
 abstract class VenuesRepository {
   Future<Either<Failure, List<VenueEntity>>> getVenues({
+    String? search,
     String? city,
     SportType? sportType,
     double? lat,

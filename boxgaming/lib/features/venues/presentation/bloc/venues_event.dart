@@ -9,6 +9,7 @@ abstract class VenuesEvent extends Equatable {
 }
 
 class LoadVenuesEvent extends VenuesEvent {
+  final String? search;
   final String? city;
   final SportType? sportType;
   final double? lat;
@@ -17,6 +18,7 @@ class LoadVenuesEvent extends VenuesEvent {
   final bool refresh;
 
   const LoadVenuesEvent({
+    this.search,
     this.city,
     this.sportType,
     this.lat,
@@ -26,7 +28,7 @@ class LoadVenuesEvent extends VenuesEvent {
   });
 
   @override
-  List<Object> get props => [city ?? '', sportType ?? '', lat ?? 0, lng ?? 0, page, refresh];
+  List<Object> get props => [search ?? '', city ?? '', sportType ?? '', lat ?? 0, lng ?? 0, page, refresh];
 }
 
 class LoadVenueDetailsEvent extends VenuesEvent {

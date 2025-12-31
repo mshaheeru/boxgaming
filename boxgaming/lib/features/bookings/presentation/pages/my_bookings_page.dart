@@ -103,9 +103,13 @@ class _BookingsList extends StatefulWidget {
   State<_BookingsList> createState() => _BookingsListState();
 }
 
-class _BookingsListState extends State<_BookingsList> {
+class _BookingsListState extends State<_BookingsList>
+    with AutomaticKeepAliveClientMixin {
   bool _hasLoaded = false;
   MyBookingsLoaded? _lastLoadedState; // Cache the last loaded state
+
+  @override
+  bool get wantKeepAlive => true; // Keep the tab alive to preserve state
 
   @override
   void initState() {

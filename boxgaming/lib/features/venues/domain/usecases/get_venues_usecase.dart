@@ -9,6 +9,7 @@ class GetVenuesUseCase {
   GetVenuesUseCase(this.repository);
 
   Future<Either<Failure, List<VenueEntity>>> call({
+    String? search,
     String? city,
     SportType? sportType,
     double? lat,
@@ -18,6 +19,7 @@ class GetVenuesUseCase {
     bool forceRefresh = false,
   }) async {
     return await repository.getVenues(
+      search: search,
       city: city,
       sportType: sportType,
       lat: lat,

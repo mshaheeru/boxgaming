@@ -26,6 +26,7 @@ class VenuesBloc extends Bloc<VenuesEvent, VenuesState> {
     }
 
     final result = await getVenuesUseCase(
+      search: event.search,
       city: event.city,
       sportType: event.sportType,
       lat: event.lat,
@@ -88,8 +89,9 @@ class VenuesBloc extends Bloc<VenuesEvent, VenuesState> {
     SearchVenuesEvent event,
     Emitter<VenuesState> emit,
   ) async {
-    // For now, just reload venues - can be enhanced with search API
-    add(LoadVenuesEvent(refresh: true));
+    // Trigger search by loading venues with search query
+    emit(VenuesLoading());
+    add(LoadVenuesEvent(search: event.query, refresh: true));
   }
 }
 

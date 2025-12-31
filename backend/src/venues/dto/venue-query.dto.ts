@@ -5,6 +5,11 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { SportType } from '../../common/enums/sport-type.enum';
 
 export class VenueQueryDto extends PaginationDto {
+  @ApiProperty({ required: false, description: 'Search query for venue name or address' })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
   @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
